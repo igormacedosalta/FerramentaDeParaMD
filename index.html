@@ -178,6 +178,19 @@
   <section id="admin" class="page">
     <div class="card">
       <h2>7. Diretores</h2>
+      <div class="help">Gerencie marcas — adicione uma marca nova (ainda sem dados na base de adoção) para já poder cadastrar o diretor dela, ou remova uma marca fechada para que ela pare de aparecer nas listas de seleção. Os dados históricos de uma marca removida continuam preservados, ela só some do cadastro daqui pra frente.</div>
+      <div class="grid">
+        <div class="wide">
+          <label>Nome da nova marca</label>
+          <input type="text" id="novaMarcaNome" placeholder="Nome exato da marca">
+        </div>
+      </div>
+      <div class="row-actions" style="margin-top:14px;">
+        <button class="primary" onclick="adicionarMarca()">Adicionar marca</button>
+      </div>
+      <div class="table-wrap" style="margin-top:16px;"><table id="marcasTable"></table></div>
+    </div>
+    <div class="card">
       <div class="help">Cadastre aqui o e-mail de cada diretor e quais marcas ele pode ver e editar. Depois de cadastrado, o diretor acessa a ferramenta com esse e-mail e cria a própria senha na tela de login ("Primeiro acesso? Criar senha"). Um diretor pode ter mais de uma marca.</div>
       <div class="grid">
         <div class="wide">
@@ -258,6 +271,7 @@ let baseDataRegular = [];
 let baseDataProprioTerceiro = [];
 function recomputarDerivadosDeBaseData() {
   allBrands = uniq(baseData.map(r=>r.Marca));
+  allBrands = uniq([...allBrands, ...marcasExtras.adicionadas]).filter(m => !marcasExtras.removidas.includes(m));
   allSelos = uniq(baseData.map(r=>r.Selo));
   allColecoes = uniq(baseData.map(r=>r['Coleção']));
   allTurnos = uniq(baseData.map(r=>r.Turno));
@@ -410,7 +424,7 @@ async function mostrarApp() {
   await carregarBaseAtual();
   init();
   if (!isAdmin) aplicarRestricaoMarcas(currentUser.marcas);
-  if (isAdmin) { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); }
+  if (isAdmin) { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); }
   ligarListenersEdicoes();
   ligarListenerProprioTerceiro();
 }
@@ -542,6 +556,46 @@ function renderAdminUsuarios() {
     });
   }).catch(e => showToast('Erro ao carregar diretores: ' + e.message, 'danger'));
 }
+function renderMarcasTable() {
+  const tbl = byId('marcasTable'); if (!tbl) return;
+  let html = '<thead><tr><th>Marca</th><th>Origem</th><th>Ação</th></tr></thead><tbody>';
+  allBrands.forEach(m => {
+    const origem = marcasExtras.adicionadas.includes(m) ? 'Adicionada manualmente' : 'Base de dados';
+    html += `<tr><td>${escapeHtml(m)}</td><td>${escapeHtml(origem)}</td><td><button class="danger" onclick="removerMarca('${escapeAttr(m)}')">Remover</button></td></tr>`;
+  });
+  html += '</tbody>';
+  tbl.innerHTML = html;
+}
+
+async function adicionarMarca() {
+  const nome = byId('novaMarcaNome').value.trim();
+  if (!nome) { alert('Informe o nome da marca.'); return; }
+  if (allBrands.includes(nome)) { alert('Essa marca já existe na lista.'); return; }
+  try {
+    await db.collection('config').doc('marcas').set({
+      adicionadas: firebase.firestore.FieldValue.arrayUnion(nome),
+      removidas: firebase.firestore.FieldValue.arrayRemove(nome)
+    }, { merge: true });
+    showToast('Marca adicionada. Recarregando...', 'ok');
+    setTimeout(() => location.reload(), 1200);
+  } catch (e) {
+    showToast('Erro ao adicionar marca: ' + e.message, 'danger');
+  }
+}
+
+async function removerMarca(marca) {
+  if (!confirm(`Remover "${marca}" das listas de seleção? Os dados já existentes dessa marca continuam preservados, ela só deixa de aparecer nos dropdowns e no cadastro de diretores.`)) return;
+  try {
+    await db.collection('config').doc('marcas').set({
+      removidas: firebase.firestore.FieldValue.arrayUnion(marca),
+      adicionadas: firebase.firestore.FieldValue.arrayRemove(marca)
+    }, { merge: true });
+    showToast('Marca removida. Recarregando...', 'warn');
+    setTimeout(() => location.reload(), 1200);
+  } catch (e) {
+    showToast('Erro ao remover marca: ' + e.message, 'danger');
+  }
+}
 /* ======================= FIM ADMIN: DIRETORES ======================= */
 
 /* ======================= BASE DO CICLO (rotação anual) ======================= */
@@ -562,6 +616,7 @@ function pctFlexivel(v) {
 }
 
 async function carregarBaseAtual() {
+  await carregarMarcasExtras();
   try {
     const configDoc = await db.collection('config').doc('atual').get();
     if (!configDoc.exists) { baseData = SEED_BASE_DATA; recomputarDerivadosDeBaseData(); window.__cicloAtual = null; return; }
@@ -582,6 +637,17 @@ async function carregarBaseAtual() {
     baseData = SEED_BASE_DATA;
     recomputarDerivadosDeBaseData();
     window.__cicloAtual = null;
+  }
+}
+
+let marcasExtras = { adicionadas: [], removidas: [] };
+async function carregarMarcasExtras() {
+  try {
+    const doc = await db.collection('config').doc('marcas').get();
+    marcasExtras = doc.exists ? { adicionadas: doc.data().adicionadas || [], removidas: doc.data().removidas || [] } : { adicionadas: [], removidas: [] };
+  } catch (e) {
+    console.error('Erro ao carregar marcas extras', e);
+    marcasExtras = { adicionadas: [], removidas: [] };
   }
 }
 
@@ -811,7 +877,7 @@ function init() {
   document.querySelectorAll('nav button').forEach(btn => btn.addEventListener('click', () => switchPage(btn.dataset.page)));
   updateRuleFilters(); updateExceptionUnits(); updateNewUnits(); renderNewClasses(); renderStats(); renderRules(); renderExceptions();
 }
-function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') renderProprioTerceiro(); if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); } }
+function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') renderProprioTerceiro(); if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); } }
 function setSelectOptions(select, vals, keep=true, includeBlank=false, blankLabel='Todos') { const old=select.value; select.innerHTML=optList(vals, includeBlank, blankLabel); if(keep && vals.includes(old)) select.value=old; }
 function updateRuleFilters() {
   const marca=byId('rMarca').value;
