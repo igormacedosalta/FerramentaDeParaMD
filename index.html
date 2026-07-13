@@ -106,6 +106,8 @@
     <button class="primary" id="loginBtn" onclick="tentarLogin()">Entrar</button>
     <p class="small" style="text-align:center;margin-top:14px;">
       <a href="#" id="loginToggleLink" onclick="alternarModoLogin();return false;">Primeiro acesso? Criar senha</a>
+      &nbsp;·&nbsp;
+      <a href="#" onclick="esqueciSenha();return false;">Esqueci minha senha</a>
     </p>
   </div>
 </div>
@@ -125,8 +127,9 @@
   <button data-page="excecoes">2. Exceções</button>
   <button data-page="novas">3. Novas turmas</button>
   <button data-page="panorama">4. Panorama de mudanças</button>
-  <button data-page="final">5. Lista final</button>
-  <button data-page="admin" style="display:none;">6. Diretores</button>
+  <button data-page="proprioterceiro">5. Materiais próprios/terceiros</button>
+  <button data-page="final">6. Lista final</button>
+  <button data-page="admin" style="display:none;">7. Diretores</button>
 </nav>
 <main>
   <section id="regras" class="page active">
@@ -142,16 +145,40 @@
     <div class="card"><div class="row-actions" style="justify-content:space-between;align-items:center;margin-bottom:10px"><strong>Materiais cadastrados para novas turmas</strong><button class="danger" onclick="clearNewClasses()">Limpar novas turmas</button></div><div class="table-wrap"><table id="newTable"></table></div></div>
   </section>
   <section id="panorama" class="page">
-    <div class="card"><h2>4. Panorama de mudanças</h2><div class="stats" id="statsBox"></div><div class="row-actions" style="margin-top:12px"><button class="primary" onclick="renderPanorama()">Atualizar panorama</button><button class="secondary" onclick="downloadCSV('panorama')">Exportar panorama CSV</button><button class="secondary" onclick="downloadJSON()">Exportar alterações JSON</button></div></div>
+    <div class="card"><h2>4. Panorama de mudanças</h2><div class="row-actions" style="margin-top:12px"><button class="primary" onclick="renderPanorama()">Atualizar panorama</button><button class="secondary" onclick="downloadCSV('panorama')">Exportar panorama CSV</button></div></div>
+    <div class="card">
+      <div class="grid">
+        <div><label>Marca</label><select id="pfMarca" onchange="renderPanorama()"></select></div>
+        <div><label>Unidade</label><select id="pfUnidade" onchange="renderPanorama()"></select></div>
+        <div><label>Turma</label><select id="pfTurma" onchange="renderPanorama()"></select></div>
+        <div><label>Turno</label><select id="pfTurno" onchange="renderPanorama()"></select></div>
+      </div>
+    </div>
     <div class="card"><div class="table-wrap"><table id="panoramaTable"></table></div></div>
   </section>
+  <section id="proprioterceiro" class="page">
+    <div class="card">
+      <h2>5. Materiais próprios/terceiros</h2>
+      <div class="help">Esses materiais não passam pelo fluxo de Regras/Exceções — são de fornecimento próprio da escola ou de terceiros. Preencha aqui o custo unitário e a quantidade de entregas ao longo do ano para cada coleção.</div>
+    </div>
+    <div class="card"><div class="table-wrap"><table id="ptTable"></table></div></div>
+  </section>
   <section id="final" class="page">
-    <div class="card"><h2>5. Lista de adoção final 2027</h2><div class="row-actions"><button class="primary" onclick="renderFinal()">Atualizar lista final</button><button class="secondary" onclick="downloadCSV('final')">Exportar lista final CSV</button><button class="danger" onclick="resetAll()">Apagar todas as alterações salvas</button></div><p class="muted">A lista final considera: base 2026 + regras da página 1 + exceções da página 2 + novas turmas da página 3.</p></div>
+    <div class="card"><h2>6. Lista de adoção final 2027</h2><div class="row-actions"><button class="primary" onclick="renderFinal()">Atualizar lista final</button><button class="secondary" onclick="downloadCSV('final')">Exportar lista final CSV</button><button class="danger" onclick="resetAll()">Apagar todas as alterações salvas</button></div><p class="muted">A lista final considera: base 2026 + regras da página 1 + exceções da página 2 + novas turmas da página 3 + materiais próprios/terceiros da página 5.</p></div>
+    <div class="card">
+      <div class="grid">
+        <div><label>Marca</label><select id="ffMarca" onchange="renderFinal()"></select></div>
+        <div><label>Unidade</label><select id="ffUnidade" onchange="renderFinal()"></select></div>
+        <div><label>Turma</label><select id="ffTurma" onchange="renderFinal()"></select></div>
+        <div><label>Turno</label><select id="ffTurno" onchange="renderFinal()"></select></div>
+        <div><label>Selo</label><select id="ffSelo" onchange="renderFinal()"></select></div>
+      </div>
+    </div>
     <div class="card"><div class="table-wrap"><table id="finalTable"></table></div></div>
   </section>
   <section id="admin" class="page">
     <div class="card">
-      <h2>6. Diretores</h2>
+      <h2>7. Diretores</h2>
       <div class="help">Cadastre aqui o e-mail de cada diretor e quais marcas ele pode ver e editar. Depois de cadastrado, o diretor acessa a ferramenta com esse e-mail e cria a própria senha na tela de login ("Primeiro acesso? Criar senha"). Um diretor pode ter mais de uma marca.</div>
       <div class="grid">
         <div class="wide">
@@ -228,6 +255,8 @@ let allSelos = [];
 let allColecoes = [];
 let allTurnos = [];
 let colecoesPorSelo = {};
+let baseDataRegular = [];
+let baseDataProprioTerceiro = [];
 function recomputarDerivadosDeBaseData() {
   allBrands = uniq(baseData.map(r=>r.Marca));
   allSelos = uniq(baseData.map(r=>r.Selo));
@@ -236,6 +265,8 @@ function recomputarDerivadosDeBaseData() {
   colecoesPorSelo = {};
   baseData.forEach(r=>{ (colecoesPorSelo[r.Selo] ||= new Set()).add(r['Coleção']); });
   Object.keys(colecoesPorSelo).forEach(k=>{ colecoesPorSelo[k] = [...colecoesPorSelo[k]].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR')); });
+  baseDataRegular = baseData.filter(r=>r.Tipo!=='ProprioTerceiro');
+  baseDataProprioTerceiro = baseData.filter(r=>r.Tipo==='ProprioTerceiro');
 }
 function escapeHtml(s) { return String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function escapeAttr(s) { return escapeHtml(s); }
@@ -279,7 +310,7 @@ function alternarModoLogin() {
   byId('loginBtn').innerText = modoCriarConta ? 'Criar senha e entrar' : 'Entrar';
   byId('loginBtn').onclick = modoCriarConta ? criarConta : tentarLogin;
   byId('loginToggleLink').innerText = modoCriarConta ? 'Já tenho senha? Entrar' : 'Primeiro acesso? Criar senha';
-  byId('loginError').innerText = '';
+  byId('loginError').style.color = ''; byId('loginError').innerText = '';
 }
 
 async function buscarAutorizacao(email) {
@@ -287,10 +318,25 @@ async function buscarAutorizacao(email) {
   return doc.exists ? doc.data() : null;
 }
 
+async function esqueciSenha() {
+  const email = byId('loginEmail').value.trim();
+  byId('loginError').style.color = ''; byId('loginError').innerText = '';
+  if (!email) { byId('loginError').innerText = 'Digite seu e-mail no campo acima e clique em "Esqueci minha senha" de novo.'; return; }
+  try {
+    await auth.sendPasswordResetEmail(email);
+    byId('loginError').style.color = 'var(--ok)';
+    byId('loginError').innerText = 'Enviamos um link de redefinição para ' + email + '. Verifique também a caixa de spam.';
+  } catch (e) {
+    byId('loginError').style.color = 'var(--danger)';
+    if (e.code === 'auth/user-not-found') byId('loginError').innerText = 'Não existe conta com esse e-mail ainda. Use "Primeiro acesso? Criar senha".';
+    else byId('loginError').innerText = 'Não foi possível enviar o e-mail: ' + e.message;
+  }
+}
+
 async function tentarLogin() {
   const email = byId('loginEmail').value.trim();
   const senha = byId('loginSenha').value;
-  byId('loginError').innerText = '';
+  byId('loginError').style.color = ''; byId('loginError').innerText = '';
   if (!email || !senha) { byId('loginError').innerText = 'Preencha e-mail e senha.'; return; }
   try { await auth.signInWithEmailAndPassword(email, senha); }
   catch (e) { byId('loginError').innerText = 'E-mail ou senha incorretos.'; return; }
@@ -300,7 +346,7 @@ async function tentarLogin() {
 async function criarConta() {
   const email = byId('loginEmail').value.trim();
   const senha = byId('loginSenha').value;
-  byId('loginError').innerText = '';
+  byId('loginError').style.color = ''; byId('loginError').innerText = '';
   if (!email || !senha) { byId('loginError').innerText = 'Preencha e-mail e senha.'; return; }
   if (senha.length < 6) { byId('loginError').innerText = 'A senha precisa ter pelo menos 6 caracteres.'; return; }
   let credencial;
@@ -347,6 +393,8 @@ async function processarLoginAutenticado(email) {
 
 function logout() {
   desligarListenersEdicoes();
+  unsubscribePT.forEach(u => u());
+  unsubscribePT = [];
   currentUser = null;
   auth.signOut();
   location.reload();
@@ -365,6 +413,7 @@ async function mostrarApp() {
   if (!isAdmin) aplicarRestricaoMarcas(currentUser.marcas);
   if (isAdmin) { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); }
   ligarListenersEdicoes();
+  ligarListenerProprioTerceiro();
 }
 
 function aplicarRestricaoMarcas(marcas) {
@@ -571,18 +620,24 @@ async function substituirBase(file, anoBase, anoAlvo) {
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const rowsRaw = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-  const linhas = rowsRaw.map((r, i) => ({
-    id: 'B' + Date.now() + '_' + i,
-    Marca: campoFlexivel(r, 'Marca', 'marca'),
-    Unidade: campoFlexivel(r, 'Unidade', 'unidade'),
-    Turma: campoFlexivel(r, 'Turma', 'turma'),
-    Turno: campoFlexivel(r, 'Turno', 'turno'),
-    Selo: campoFlexivel(r, 'Selo', 'selo'),
-    'Coleção': campoFlexivel(r, 'Coleção', 'Colecao', 'coleção', 'colecao'),
-    Pct: pctFlexivel(campoFlexivel(r, 'Utilização', 'Utilizacao', 'utilização', 'utilizacao')),
-  })).filter(r => r.Marca && r.Turma && r['Coleção'] && norm(r['Coleção']) !== 'não utiliza' && norm(r['Coleção']) !== 'nao utiliza');
+  const linhas = rowsRaw.map((r, i) => {
+    const classificacao = norm(campoFlexivel(r, 'MD regular x próprio/terceiro', 'MD regular x proprio/terceiro', 'Regular x Próprio/terceiro') || 'regular');
+    return {
+      id: 'B' + Date.now() + '_' + i,
+      Marca: campoFlexivel(r, 'Marca', 'marca'),
+      Unidade: campoFlexivel(r, 'Unidade', 'unidade'),
+      Turma: campoFlexivel(r, 'Turma', 'turma'),
+      Turno: campoFlexivel(r, 'Turno', 'turno'),
+      Selo: campoFlexivel(r, 'Selo', 'selo'),
+      'Coleção': campoFlexivel(r, 'Coleção', 'Colecao', 'coleção', 'colecao'),
+      Pct: pctFlexivel(campoFlexivel(r, 'Utilização', 'Utilizacao', 'utilização', 'utilizacao')),
+      Tipo: classificacao.includes('próprio') || classificacao.includes('proprio') || classificacao.includes('terceiro') ? 'ProprioTerceiro' : 'Regular',
+    };
+  }).filter(r => r.Marca && r.Turma && r['Coleção'] && norm(r['Coleção']) !== 'não utiliza' && norm(r['Coleção']) !== 'nao utiliza');
 
   if (!linhas.length) { alert('Nenhuma linha válida encontrada no arquivo. Confira as colunas: Marca, Unidade, Turma, Turno, Selo, Coleção, Utilização.'); return; }
+  const totalRegular = linhas.filter(l=>l.Tipo==='Regular').length;
+  const totalPT = linhas.filter(l=>l.Tipo==='ProprioTerceiro').length;
 
   const novoCicloId = 'ciclo_' + anoAlvo + '_' + Date.now();
 
@@ -621,7 +676,7 @@ async function substituirBase(file, anoBase, anoAlvo) {
   // 4. apontar o ciclo atual para a nova base
   await db.collection('config').doc('atual').set({ cicloId: novoCicloId, anoBase, anoAlvo, atualizadoEm: new Date().toISOString() });
 
-  showToast('Nova base carregada! Recarregando a ferramenta...', 'ok');
+  showToast(`Nova base carregada: ${totalRegular.toLocaleString('pt-BR')} regulares, ${totalPT.toLocaleString('pt-BR')} próprio/terceiro. Recarregando...`, 'ok');
   setTimeout(() => location.reload(), 1800);
 }
 
@@ -671,6 +726,63 @@ async function baixarHistoricoCiclo(ciclo) {
   }
 }
 /* ======================= FIM BASE DO CICLO ======================= */
+
+/* ======================= MATERIAIS PRÓPRIOS/TERCEIROS ======================= */
+let ptDados = {}; // marca -> { 'selo|||colecao': {custo, qtdEntregas, autor, quando} }
+let unsubscribePT = [];
+
+function getProprioTerceiroCombos() {
+  let rows = baseDataProprioTerceiro;
+  if (restrictMarcas) rows = rows.filter(r => restrictMarcas.includes(r.Marca));
+  const combos = {};
+  rows.forEach(r => {
+    const k = [r.Marca, r.Selo, r['Coleção']].join('|||');
+    if (!combos[k]) combos[k] = { Marca: r.Marca, Selo: r.Selo, Colecao: r['Coleção'] };
+  });
+  return Object.values(combos).sort((a,b) => a.Marca.localeCompare(b.Marca,'pt-BR') || a.Selo.localeCompare(b.Selo,'pt-BR') || a.Colecao.localeCompare(b.Colecao,'pt-BR'));
+}
+
+function ligarListenerProprioTerceiro() {
+  unsubscribePT.forEach(u => u());
+  unsubscribePT = [];
+  ptDados = {};
+  const marcas = currentUser.papel === 'admin' ? allBrands : currentUser.marcas;
+  marcas.forEach(marca => {
+    const unsub = db.collection('custos_proprio_terceiro').doc(marca).onSnapshot(doc => {
+      ptDados[marca] = doc.exists ? doc.data() : {};
+      renderProprioTerceiro();
+    }, e => console.error('Erro ao sincronizar custos próprio/terceiro', e));
+    unsubscribePT.push(unsub);
+  });
+}
+
+function renderProprioTerceiro() {
+  const tbl = byId('ptTable'); if (!tbl) return;
+  const combos = getProprioTerceiroCombos();
+  let html = '<thead><tr><th>Marca</th><th>Selo</th><th>Coleção</th><th>Custo unitário (R$)</th><th>Qtd. entregas no ano</th><th>Ação</th></tr></thead><tbody>';
+  combos.forEach(c => {
+    const chave = [c.Selo, c.Colecao].join('|||');
+    const encId = safeEnc(c.Marca + '|||' + chave);
+    const salvo = (ptDados[c.Marca] || {})[chave] || {};
+    html += `<tr><td>${escapeHtml(c.Marca)}</td><td>${escapeHtml(c.Selo)}</td><td>${escapeHtml(c.Colecao)}</td>
+      <td><input type="number" step="0.01" min="0" id="ptcusto_${encId}" value="${escapeAttr(salvo.custo ?? '')}" style="width:110px;"></td>
+      <td><input type="number" step="1" min="0" id="ptqtd_${encId}" value="${escapeAttr(salvo.qtdEntregas ?? '')}" style="width:90px;"></td>
+      <td class="row-actions"><button class="secondary" onclick="salvarProprioTerceiro('${escapeAttr(c.Marca)}','${escapeAttr(chave)}')">Salvar</button></td></tr>`;
+  });
+  html += '</tbody>';
+  tbl.innerHTML = html;
+}
+
+function salvarProprioTerceiro(marca, chave) {
+  const encId = safeEnc(marca + '|||' + chave);
+  const custo = parseFloat(String(byId('ptcusto_'+encId).value).replace(',', '.')) || 0;
+  const qtdEntregas = parseInt(byId('ptqtd_'+encId).value, 10) || 0;
+  const valor = { custo, qtdEntregas, autor: currentUser ? currentUser.email : '', quando: new Date().toISOString() };
+  db.collection('custos_proprio_terceiro').doc(marca).set({ [chave]: valor }, { merge: true })
+    .then(() => showToast('Custo salvo' + (currentUser ? (' · ' + currentUser.email) : ''), 'ok'))
+    .catch(e => showToast('Erro ao salvar: ' + e.message, 'danger'));
+}
+/* ======================= FIM MATERIAIS PRÓPRIOS/TERCEIROS ======================= */
 function showToast(msg, type) {
   const container = byId('toastContainer');
   if (!container) return;
@@ -700,26 +812,26 @@ function init() {
   document.querySelectorAll('nav button').forEach(btn => btn.addEventListener('click', () => switchPage(btn.dataset.page)));
   updateRuleFilters(); updateExceptionUnits(); updateNewUnits(); renderNewClasses(); renderStats(); renderRules(); renderExceptions();
 }
-function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='panorama') renderPanorama(); if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); } }
+function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') renderProprioTerceiro(); if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); } }
 function setSelectOptions(select, vals, keep=true, includeBlank=false, blankLabel='Todos') { const old=select.value; select.innerHTML=optList(vals, includeBlank, blankLabel); if(keep && vals.includes(old)) select.value=old; }
 function updateRuleFilters() {
   const marca=byId('rMarca').value;
-  const rows=baseData.filter(r=>r.Marca===marca);
+  const rows=baseDataRegular.filter(r=>r.Marca===marca);
   setSelectOptions(byId('rTurma'), sortTurmas(uniq(rows.map(r=>r.Turma))), false, true, 'Selecione a turma...');
   setSelectOptions(byId('rSelo'), allSelos, false, true, 'Selecione o selo...');
   byId('rTurma').onchange = () => { setSelectOptions(byId('rSelo'), allSelos, false, true, 'Selecione o selo...'); renderRules(); };
   byId('rSelo').onchange = renderRules;
   renderRules();
 }
-function updateExceptionUnits() { const marca=byId('eMarca').value; const rows=baseData.filter(r=>r.Marca===marca); setSelectOptions(byId('eUnidade'), uniq(rows.map(r=>r.Unidade)), false, true, 'Selecione a unidade...'); updateExceptionTurmas(); }
-function updateExceptionTurmas() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value; const rows=baseData.filter(r=>r.Marca===marca && r.Unidade===unidade); setSelectOptions(byId('eTurma'), sortTurmas(uniq(rows.map(r=>r.Turma))), false, true, 'Selecione a turma...'); updateExceptionSelos(); }
-function updateExceptionSelos() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value, turma=byId('eTurma').value; const rows=baseData.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma); setSelectOptions(byId('eSelo'), uniq(rows.map(r=>r.Selo)), false, true, 'Selecione o selo...'); renderExceptions(); }
-function updateNewUnits() { const marca=byId('nMarca').value; const vals = uniq(baseData.filter(r=>r.Marca===marca).map(r=>r.Unidade)); byId('nUnidade').innerHTML = `<option value="">Regra da marca / sem escola específica</option>` + optList(vals); }
+function updateExceptionUnits() { const marca=byId('eMarca').value; const rows=baseDataRegular.filter(r=>r.Marca===marca); setSelectOptions(byId('eUnidade'), uniq(rows.map(r=>r.Unidade)), false, true, 'Selecione a unidade...'); updateExceptionTurmas(); }
+function updateExceptionTurmas() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value; const rows=baseDataRegular.filter(r=>r.Marca===marca && r.Unidade===unidade); setSelectOptions(byId('eTurma'), sortTurmas(uniq(rows.map(r=>r.Turma))), false, true, 'Selecione a turma...'); updateExceptionSelos(); }
+function updateExceptionSelos() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value, turma=byId('eTurma').value; const rows=baseDataRegular.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma); setSelectOptions(byId('eSelo'), uniq(rows.map(r=>r.Selo)), false, true, 'Selecione o selo...'); renderExceptions(); }
+function updateNewUnits() { const marca=byId('nMarca').value; const vals = uniq(baseDataRegular.filter(r=>r.Marca===marca).map(r=>r.Unidade)); byId('nUnidade').innerHTML = `<option value="">Regra da marca / sem escola específica</option>` + optList(vals); }
 function renderRules() {
   if(!byId('rMarca').value || !byId('rTurma').value || !byId('rSelo').value) return;
   const marca=byId('rMarca').value, turma=byId('rTurma').value, selo=byId('rSelo').value;
-  const rows=baseData.filter(r=>r.Marca===marca && r.Turma===turma && r.Selo===selo);
-  const turmaRows=baseData.filter(r=>r.Marca===marca && r.Turma===turma);
+  const rows=baseDataRegular.filter(r=>r.Marca===marca && r.Turma===turma && r.Selo===selo);
+  const turmaRows=baseDataRegular.filter(r=>r.Marca===marca && r.Turma===turma);
   const groups={};
   rows.forEach(r=>{ const k=currentRuleKey(r); if(!groups[k]) groups[k]={Marca:marca,Turma:turma,Selo:selo,Colecao:r['Coleção'], Pct:r.Pct, qtd:0, unidades:new Set(), synthetic:false}; groups[k].qtd++; groups[k].unidades.add(r.Unidade); });
   if(Object.keys(groups).length===0) {
@@ -784,7 +896,7 @@ function removeRuleAddition(localIndex, marca, turma, selo) {
 function renderExceptions() {
   if(!byId('eMarca').value || !byId('eUnidade').value || !byId('eTurma').value || !byId('eSelo').value) return;
   const marca=byId('eMarca').value, unidade=byId('eUnidade').value, turma=byId('eTurma').value, selo=byId('eSelo').value;
-  const rows=baseData.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma && r.Selo===selo); byId('exceptionHint').textContent = `${rows.length} linha(s) localizada(s) para esta escola/turma/selo.`;
+  const rows=baseDataRegular.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma && r.Selo===selo); byId('exceptionHint').textContent = `${rows.length} linha(s) localizada(s) para esta escola/turma/selo.`;
   let html='<thead><tr><th>Status</th><th>Turno</th><th>Material 2026</th><th>% 2026</th><th>Selo 2027</th><th>Material 2027</th><th>% 2027</th><th>Ação</th></tr></thead><tbody>';
   rows.forEach(r=>{ const edit=state.exceptionEdits[r.id] || {deleted:false, selo2027:r.Selo, colecao2027:r['Coleção'], pct2027:r.Pct}; html += `<tr><td><span class="pill ${edit.deleted?'danger':'ok'}">${edit.deleted?'Excluir':'Manter'}</span></td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r['Coleção'])}</td><td>${pctFmt(r.Pct)}</td><td><select id="eselo_${r.id}">${optList(allSelos)}</select></td><td><input id="ecol_${r.id}" list="colecoesList" value="${escapeAttr(edit.colecao2027)}"></td><td><input id="epct_${r.id}" type="number" step="0.01" min="0" max="1" value="${escapeAttr(edit.pct2027)}"></td><td class="row-actions"><button class="secondary" onclick="saveExceptionEdit('${r.id}', false)">Salvar</button><button class="danger" onclick="saveExceptionEdit('${r.id}', true)">Excluir</button><button class="secondary" onclick="clearExceptionEdit('${r.id}')">Reverter</button></td></tr>`; });
   state.exceptionAdditions.filter(a=>a.Marca===marca && a.Unidade===unidade && a.Turma===turma && a.baseSelo===selo).forEach((a,i)=>{ html += `<tr><td><span class="pill warn">Novo</span></td><td>${escapeHtml(a.Turno||'')}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeExceptionAddition(${i}, '${escapeAttr(marca)}','${escapeAttr(unidade)}','${escapeAttr(turma)}','${escapeAttr(selo)}')">Remover</button></td></tr>`; });
@@ -847,31 +959,85 @@ function clearNewClasses() {
 }
 function getFinalRows() {
   const final=[];
-  baseData.forEach(r=>{ let out={...r, Selo2027:r.Selo, Colecao2027:r['Coleção'], Pct2027:r.Pct, Origem:'Base 2026'}; const re=state.ruleEdits[currentRuleKey(r)]; if(re) { if(re.deleted) return; out.Selo2027=re.selo2027; out.Colecao2027=re.colecao2027; out.Pct2027=re.pct2027; out.Origem='Regra'; } const ee=state.exceptionEdits[r.id]; if(ee) { if(ee.deleted) return; out.Selo2027=ee.selo2027; out.Colecao2027=ee.colecao2027; out.Pct2027=ee.pct2027; out.Origem='Exceção'; } final.push(out); });
-  const comboMap={}; baseData.forEach(r=>{ const k=[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||'); if(!comboMap[k]) comboMap[k]={Marca:r.Marca,Unidade:r.Unidade,Turma:r.Turma,Turno:r.Turno, selos:new Set()}; comboMap[k].selos.add(r.Selo); });
+  baseDataRegular.forEach(r=>{ let out={...r, Selo2027:r.Selo, Colecao2027:r['Coleção'], Pct2027:r.Pct, Origem:'Base 2026'}; const re=state.ruleEdits[currentRuleKey(r)]; if(re) { if(re.deleted) return; out.Selo2027=re.selo2027; out.Colecao2027=re.colecao2027; out.Pct2027=re.pct2027; out.Origem='Regra'; } const ee=state.exceptionEdits[r.id]; if(ee) { if(ee.deleted) return; out.Selo2027=ee.selo2027; out.Colecao2027=ee.colecao2027; out.Pct2027=ee.pct2027; out.Origem='Exceção'; } final.push(out); });
+  const comboMap={}; baseDataRegular.forEach(r=>{ const k=[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||'); if(!comboMap[k]) comboMap[k]={Marca:r.Marca,Unidade:r.Unidade,Turma:r.Turma,Turno:r.Turno, selos:new Set()}; comboMap[k].selos.add(r.Selo); });
   Object.values(comboMap).forEach(c=>{ allSelos.forEach(selo=>{ if(c.selos.has(selo)) return; const k=ruleKey(c.Marca,c.Turma,selo,'Não utiliza'); const re=state.ruleEdits[k]; if(re && re.deleted) return; final.push({id:'NAO_UTILIZA', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:selo, 'Coleção':'Não utiliza', Pct:0, Selo2027:re ? re.selo2027 : selo, Colecao2027:re ? re.colecao2027 : 'Não utiliza', Pct2027:re ? re.pct2027 : 0, Origem:re ? 'Regra' : 'Não utiliza'}); }); });
-  state.ruleAdditions.forEach(a=>{ const combos={}; baseData.filter(r=>r.Marca===a.Marca && r.Turma===a.Turma).forEach(r=>{ combos[[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||')]={Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno}; }); Object.values(combos).forEach(c=>final.push({id:'ADD_RULE', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - regra'})); });
+  state.ruleAdditions.forEach(a=>{ const combos={}; baseDataRegular.filter(r=>r.Marca===a.Marca && r.Turma===a.Turma).forEach(r=>{ combos[[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||')]={Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno}; }); Object.values(combos).forEach(c=>final.push({id:'ADD_RULE', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - regra'})); });
   state.exceptionAdditions.forEach(a=>final.push({id:'ADD_EXC', Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - exceção'}));
   state.newClasses.forEach(a=>final.push({id:'NEW_CLASS', Marca:a.Marca, Unidade:a.Unidade||'Regra da marca', Turma:a.Turma, Turno:a.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova turma'}));
+  baseDataProprioTerceiro.forEach(r=>final.push({...r, Selo2027:r.Selo, Colecao2027:r['Coleção'], Pct2027:r.Pct, Origem:'Próprio/Terceiro'}));
   return final;
 }
 function getPanoramaRows() {
   const rows=[];
-  baseData.forEach(r=>{ const re=state.ruleEdits[currentRuleKey(r)]; const ee=state.exceptionEdits[r.id]; let status='', selo2027=r.Selo, col2027=r['Coleção'], pct2027=r.Pct; if(re) { if(re.deleted) { status='Excluído por regra'; selo2027=''; col2027=''; pct2027=''; } else { status='Alterado por regra'; selo2027=re.selo2027; col2027=re.colecao2027; pct2027=re.pct2027; } } if(ee) { if(ee.deleted) { status='Excluído por exceção'; selo2027=''; col2027=''; pct2027=''; } else { status='Alterado por exceção'; selo2027=ee.selo2027; col2027=ee.colecao2027; pct2027=ee.pct2027; } } if(status && (r.Selo!==selo2027 || r['Coleção']!==col2027 || Number(r.Pct)!==Number(pct2027) || col2027==='')) rows.push({Status:status, Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Selo_2026:r.Selo, Material_2026:r['Coleção'], Utilizacao_2026:r.Pct, Selo_2027:selo2027, Material_2027:col2027, Utilizacao_2027:pct2027}); });
-  Object.keys(state.ruleEdits).forEach(k=>{ const [marca,turma,selo,colecao]=k.split('|||'); if(colecao!=='Não utiliza') return; const re=state.ruleEdits[k]; if(!re || re.deleted) return; if((re.colecao2027==='Não utiliza' || !re.colecao2027) && Number(re.pct2027)===0 && re.selo2027===selo) return; rows.push({Status:'Alterado por regra', Marca:marca, Unidade:'Todas as escolas da regra', Turma:turma, Selo_2026:selo, Material_2026:'Não utiliza', Utilizacao_2026:0, Selo_2027:re.selo2027, Material_2027:re.colecao2027, Utilizacao_2027:re.pct2027}); });
-  state.ruleAdditions.forEach(a=>rows.push({Status:'Adicionado por regra', Marca:a.Marca, Unidade:'Todas as escolas da regra', Turma:a.Turma, Selo_2026:a.baseSelo, Material_2026:'', Utilizacao_2026:'', Selo_2027:a.selo2027, Material_2027:a.colecao2027, Utilizacao_2027:a.pct2027}));
-  state.exceptionAdditions.forEach(a=>rows.push({Status:'Adicionado por exceção', Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Selo_2026:a.baseSelo, Material_2026:'', Utilizacao_2026:'', Selo_2027:a.selo2027, Material_2027:a.colecao2027, Utilizacao_2027:a.pct2027}));
-  state.newClasses.forEach(a=>rows.push({Status:'Nova turma', Marca:a.Marca, Unidade:a.Unidade||'Regra da marca', Turma:a.Turma, Selo_2026:'', Material_2026:'', Utilizacao_2026:'', Selo_2027:a.selo2027, Material_2027:a.colecao2027, Utilizacao_2027:a.pct2027}));
+  const regrasJaListadas=new Set();
+  baseDataRegular.forEach(r=>{
+    const re=state.ruleEdits[currentRuleKey(r)];
+    const ee=state.exceptionEdits[r.id];
+    if (ee) {
+      let status='', selo2027=r.Selo, col2027=r['Coleção'], pct2027=r.Pct;
+      if (ee.deleted) { status='Excluído por exceção'; selo2027=''; col2027=''; pct2027=''; }
+      else { status='Alterado por exceção'; selo2027=ee.selo2027; col2027=ee.colecao2027; pct2027=ee.pct2027; }
+      if (r.Selo!==selo2027 || r['Coleção']!==col2027 || Number(r.Pct)!==Number(pct2027) || col2027==='') {
+        rows.push({Status:status, Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno, Selo_2026:r.Selo, Material_2026:r['Coleção'], Utilizacao_2026:r.Pct, Selo_2027:selo2027, Material_2027:col2027, Utilizacao_2027:pct2027});
+      }
+      return;
+    }
+    if (re) {
+      const chave=currentRuleKey(r);
+      if (regrasJaListadas.has(chave)) return;
+      let status='', selo2027=r.Selo, col2027=r['Coleção'], pct2027=r.Pct;
+      if (re.deleted) { status='Excluído por regra'; selo2027=''; col2027=''; pct2027=''; }
+      else { status='Alterado por regra'; selo2027=re.selo2027; col2027=re.colecao2027; pct2027=re.pct2027; }
+      if (r.Selo!==selo2027 || r['Coleção']!==col2027 || Number(r.Pct)!==Number(pct2027) || col2027==='') {
+        regrasJaListadas.add(chave);
+        rows.push({Status:status, Marca:r.Marca, Unidade:'Todas as escolas da regra', Turma:r.Turma, Turno:'', Selo_2026:r.Selo, Material_2026:r['Coleção'], Utilizacao_2026:r.Pct, Selo_2027:selo2027, Material_2027:col2027, Utilizacao_2027:pct2027});
+      }
+    }
+  });
+  Object.keys(state.ruleEdits).forEach(k=>{ const [marca,turma,selo,colecao]=k.split('|||'); if(colecao!=='Não utiliza') return; const re=state.ruleEdits[k]; if(!re || re.deleted) return; if((re.colecao2027==='Não utiliza' || !re.colecao2027) && Number(re.pct2027)===0 && re.selo2027===selo) return; rows.push({Status:'Alterado por regra', Marca:marca, Unidade:'Todas as escolas da regra', Turma:turma, Turno:'', Selo_2026:selo, Material_2026:'Não utiliza', Utilizacao_2026:0, Selo_2027:re.selo2027, Material_2027:re.colecao2027, Utilizacao_2027:re.pct2027}); });
+  state.ruleAdditions.forEach(a=>rows.push({Status:'Adicionado por regra', Marca:a.Marca, Unidade:'Todas as escolas da regra', Turma:a.Turma, Turno:'', Selo_2026:a.baseSelo, Material_2026:'', Utilizacao_2026:'', Selo_2027:a.selo2027, Material_2027:a.colecao2027, Utilizacao_2027:a.pct2027}));
+  state.exceptionAdditions.forEach(a=>rows.push({Status:'Adicionado por exceção', Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno||'', Selo_2026:a.baseSelo, Material_2026:'', Utilizacao_2026:'', Selo_2027:a.selo2027, Material_2027:a.colecao2027, Utilizacao_2027:a.pct2027}));
+  state.newClasses.forEach(a=>rows.push({Status:'Nova turma', Marca:a.Marca, Unidade:a.Unidade||'Regra da marca', Turma:a.Turma, Turno:a.Turno||'', Selo_2026:'', Material_2026:'', Utilizacao_2026:'', Selo_2027:a.selo2027, Material_2027:a.colecao2027, Utilizacao_2027:a.pct2027}));
   return rows;
 }
-function renderStats() { let p=getPanoramaRows(), f=getFinalRows(); let baseCount=baseData.length; if(restrictMarcas){ p=p.filter(r=>restrictMarcas.includes(r.Marca)); f=f.filter(r=>restrictMarcas.includes(r.Marca)); baseCount=baseData.filter(r=>restrictMarcas.includes(r.Marca)).length; } const changed=p.filter(r=>String(r.Status).startsWith('Alterado')).length, del=p.filter(r=>String(r.Status).startsWith('Excluído')).length, add=p.filter(r=>String(r.Status).startsWith('Adicionado') || r.Status==='Nova turma').length; byId('statsBox').innerHTML = `<div class="stat"><div class="muted">Linhas na base 2026</div><div class="num">${baseCount.toLocaleString('pt-BR')}</div></div><div class="stat"><div class="muted">Alterações</div><div class="num">${changed.toLocaleString('pt-BR')}</div></div><div class="stat"><div class="muted">Exclusões</div><div class="num">${del.toLocaleString('pt-BR')}</div></div><div class="stat"><div class="muted">Lista final</div><div class="num">${f.length.toLocaleString('pt-BR')}</div></div>`; }
-function renderPanorama() { let rows=getPanoramaRows(); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); renderStats(); renderTable('panoramaTable', rows, ['Status','Marca','Unidade','Turma','Selo_2026','Material_2026','Utilizacao_2026','Selo_2027','Material_2027','Utilizacao_2027'], 1000); }
-function renderFinal() { let rows=getFinalRows().map(r=>({Origem:r.Origem, Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno, Selo:r.Selo2027, Colecao:r.Colecao2027, Utilizacao:r.Pct2027})); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); renderTable('finalTable', rows, ['Origem','Marca','Unidade','Turma','Turno','Selo','Colecao','Utilizacao'], 2000); }
+function renderStats() { const el=byId('statsBox'); if(!el) return; let p=getPanoramaRows(), f=getFinalRows(); let baseCount=baseData.length; if(restrictMarcas){ p=p.filter(r=>restrictMarcas.includes(r.Marca)); f=f.filter(r=>restrictMarcas.includes(r.Marca)); baseCount=baseData.filter(r=>restrictMarcas.includes(r.Marca)).length; } const changed=p.filter(r=>String(r.Status).startsWith('Alterado')).length, del=p.filter(r=>String(r.Status).startsWith('Excluído')).length; el.innerHTML = `<div class="stat"><div class="muted">Linhas na base 2026</div><div class="num">${baseCount.toLocaleString('pt-BR')}</div></div><div class="stat"><div class="muted">Alterações</div><div class="num">${changed.toLocaleString('pt-BR')}</div></div><div class="stat"><div class="muted">Exclusões</div><div class="num">${del.toLocaleString('pt-BR')}</div></div><div class="stat"><div class="muted">Lista final</div><div class="num">${f.length.toLocaleString('pt-BR')}</div></div>`; }
+
+function popularFiltro(selectId, valores) {
+  const sel = byId(selectId); if (!sel) return;
+  const atual = sel.value;
+  const distintos = uniq(valores);
+  sel.innerHTML = '<option value="">Todos</option>' + distintos.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
+  if (distintos.includes(atual)) sel.value = atual;
+}
+function popularFiltrosPanorama(rows) {
+  popularFiltro('pfMarca', rows.map(r=>r.Marca));
+  popularFiltro('pfUnidade', rows.map(r=>r.Unidade));
+  popularFiltro('pfTurma', rows.map(r=>r.Turma));
+  popularFiltro('pfTurno', rows.map(r=>r.Turno));
+}
+function aplicarFiltrosPanorama(rows) {
+  const m=byId('pfMarca').value, u=byId('pfUnidade').value, t=byId('pfTurma').value, tn=byId('pfTurno').value;
+  return rows.filter(r => (!m || r.Marca===m) && (!u || r.Unidade===u) && (!t || r.Turma===t) && (!tn || r.Turno===tn));
+}
+function popularFiltrosFinal(rows) {
+  popularFiltro('ffMarca', rows.map(r=>r.Marca));
+  popularFiltro('ffUnidade', rows.map(r=>r.Unidade));
+  popularFiltro('ffTurma', rows.map(r=>r.Turma));
+  popularFiltro('ffTurno', rows.map(r=>r.Turno));
+  popularFiltro('ffSelo', rows.map(r=>r.Selo));
+}
+function aplicarFiltrosFinal(rows) {
+  const m=byId('ffMarca').value, u=byId('ffUnidade').value, t=byId('ffTurma').value, tn=byId('ffTurno').value, s=byId('ffSelo').value;
+  return rows.filter(r => (!m || r.Marca===m) && (!u || r.Unidade===u) && (!t || r.Turma===t) && (!tn || r.Turno===tn) && (!s || r.Selo===s));
+}
+
+function renderPanorama() { let rows=getPanoramaRows(); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); popularFiltrosPanorama(rows); rows=aplicarFiltrosPanorama(rows); renderTable('panoramaTable', rows, ['Status','Marca','Unidade','Turma','Turno','Selo_2026','Material_2026','Utilizacao_2026','Selo_2027','Material_2027','Utilizacao_2027'], 1000); }
+function renderFinal() { let rows=getFinalRows().map(r=>({Origem:r.Origem, Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno, Selo:r.Selo2027, Colecao:r.Colecao2027, Utilizacao:r.Pct2027})); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); popularFiltrosFinal(rows); rows=aplicarFiltrosFinal(rows); renderTable('finalTable', rows, ['Origem','Marca','Unidade','Turma','Turno','Selo','Colecao','Utilizacao'], 2000); }
 function renderTable(id, data, cols, maxRows) { let html='<thead><tr>'+cols.map(c=>`<th>${escapeHtml(c.replaceAll('_',' '))}</th>`).join('')+'</tr></thead><tbody>'; data.slice(0,maxRows).forEach(r=>{ html+='<tr>'+cols.map(c=>`<td>${typeof r[c]==='number' && c.toLowerCase().includes('utilizacao') ? pctFmt(r[c]) : escapeHtml(r[c])}</td>`).join('')+'</tr>'; }); html+='</tbody>'; byId(id).innerHTML=html; }
 function toCSV(rows) { if(!rows.length) return ''; const cols=Object.keys(rows[0]); const esc=v=>'"'+String(v ?? '').replaceAll('"','""')+'"'; return [cols.map(esc).join(';')].concat(rows.map(r=>cols.map(c=>esc(r[c])).join(';'))).join('\n'); }
 function downloadBlob(name, content, type) { const blob=new Blob([content],{type}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
-function downloadCSV(kind) { if(kind==='panorama') { let rows=getPanoramaRows(); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); downloadBlob('panorama_mudancas_2027.csv', toCSV(rows), 'text/csv;charset=utf-8'); } else { let rows=getFinalRows().map(r=>({Origem:r.Origem,Marca:r.Marca,Unidade:r.Unidade,Turma:r.Turma,Turno:r.Turno,Selo:r.Selo2027,Colecao:r.Colecao2027,Utilizacao:r.Pct2027})); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); downloadBlob('lista_adocao_final_2027.csv', toCSV(rows), 'text/csv;charset=utf-8'); } }
-function downloadJSON() { downloadBlob('alteracoes_depara_2027.json', JSON.stringify(state,null,2), 'application/json;charset=utf-8'); }
+function downloadCSV(kind) { if(kind==='panorama') { let rows=getPanoramaRows(); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); rows=aplicarFiltrosPanorama(rows); downloadBlob('panorama_mudancas_2027.csv', toCSV(rows), 'text/csv;charset=utf-8'); } else { let rows=getFinalRows().map(r=>({Origem:r.Origem,Marca:r.Marca,Unidade:r.Unidade,Turma:r.Turma,Turno:r.Turno,Selo:r.Selo2027,Colecao:r.Colecao2027,Utilizacao:r.Pct2027})); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); rows=aplicarFiltrosFinal(rows); downloadBlob('lista_adocao_final_2027.csv', toCSV(rows), 'text/csv;charset=utf-8'); } }
 function resetAll() {
   let marcas;
   if (currentUser.papel === 'admin') {
