@@ -207,6 +207,24 @@
       <div class="table-wrap" style="margin-top:16px;"><table id="marcasTable"></table></div>
     </div>
     <div class="card">
+      <h3 style="margin-top:0;">Cadastro de Marca/Unidade/Turma/Turno</h3>
+      <div class="help">Suba aqui uma planilha com as colunas <strong>Marca, Unidade, Turma, Turno</strong> — é o cadastro completo de escolas/turmas válidas, independente do que já está na lista de adoção atual. Isso garante que marcas/unidades novas apareçam nos menus de seleção mesmo antes de existir adoção para elas. As abas de Regras e Exceções continuam usando a lista de adoção atual para as linhas editáveis — esse cadastro afeta só as listas suspensas.</div>
+      <div id="catalogoMuInfo" class="adocao-info"></div>
+      <div class="grid">
+        <div class="wide"><label>Arquivo (Marca, Unidade, Turma, Turno)</label><input type="file" id="catalogoMuArquivo" accept=".xlsx,.xls,.csv"></div>
+      </div>
+      <div class="row-actions" style="margin-top:14px;"><button class="primary" onclick="enviarCatalogoMarcasUnidades()">Enviar cadastro de Marca/Unidade</button></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">Cadastro de Selo/Coleção</h3>
+      <div class="help">Suba aqui uma planilha com as colunas <strong>Selo, Coleção</strong> — o cadastro completo de selos e coleções disponíveis, independente do que já está na lista de adoção atual. Isso garante que selos/coleções novos apareçam como opção nas edições de Regras/Exceções mesmo antes de existir adoção para eles.</div>
+      <div id="catalogoScInfo" class="adocao-info"></div>
+      <div class="grid">
+        <div class="wide"><label>Arquivo (Selo, Coleção)</label><input type="file" id="catalogoScArquivo" accept=".xlsx,.xls,.csv"></div>
+      </div>
+      <div class="row-actions" style="margin-top:14px;"><button class="primary" onclick="enviarCatalogoSelosColecoes()">Enviar cadastro de Selo/Coleção</button></div>
+    </div>
+    <div class="card">
       <div class="help">Cadastre aqui o e-mail de cada diretor e quais marcas ele pode ver e editar. Depois de cadastrado, o diretor acessa a ferramenta com esse e-mail e cria a própria senha na tela de login ("Primeiro acesso? Criar senha"). Um diretor pode ter mais de uma marca.</div>
       <div class="grid">
         <div class="wide">
@@ -286,13 +304,17 @@ let colecoesPorSelo = {};
 let baseDataRegular = [];
 let baseDataProprioTerceiro = [];
 function recomputarDerivadosDeBaseData() {
-  allBrands = uniq(baseData.map(r=>r.Marca));
+  const marcasCatalogo = uniq(catalogoMarcasUnidades.map(r=>r.Marca));
+  allBrands = marcasCatalogo.length ? marcasCatalogo : uniq(baseData.map(r=>r.Marca));
   allBrands = uniq([...allBrands, ...marcasExtras.adicionadas]).filter(m => !marcasExtras.removidas.includes(m));
-  allSelos = uniq(baseData.map(r=>r.Selo));
-  allColecoes = uniq(baseData.map(r=>r['Coleção']));
+  const selosCatalogo = uniq(catalogoSelosColecoes.map(r=>r.Selo));
+  allSelos = selosCatalogo.length ? selosCatalogo : uniq(baseData.map(r=>r.Selo));
+  const colecoesCatalogo = uniq(catalogoSelosColecoes.map(r=>r['Coleção']));
+  allColecoes = colecoesCatalogo.length ? colecoesCatalogo : uniq(baseData.map(r=>r['Coleção']));
   allTurnos = uniq(baseData.map(r=>r.Turno));
   colecoesPorSelo = {};
-  baseData.forEach(r=>{ (colecoesPorSelo[r.Selo] ||= new Set()).add(r['Coleção']); });
+  const fonteColecoes = catalogoSelosColecoes.length ? catalogoSelosColecoes : baseData;
+  fonteColecoes.forEach(r=>{ (colecoesPorSelo[r.Selo] ||= new Set()).add(r['Coleção']); });
   Object.keys(colecoesPorSelo).forEach(k=>{ colecoesPorSelo[k] = [...colecoesPorSelo[k]].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR')); });
   baseDataRegular = baseData.filter(r=>r.Tipo!=='ProprioTerceiro');
   baseDataProprioTerceiro = baseData.filter(r=>r.Tipo==='ProprioTerceiro');
@@ -440,7 +462,7 @@ async function mostrarApp() {
   await carregarBaseAtual();
   init();
   if (!isAdmin) aplicarRestricaoMarcas(currentUser.marcas);
-  if (isAdmin) { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); }
+  if (isAdmin) { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); }
   ligarListenersEdicoes();
   ligarListenerProprioTerceiro();
 }
@@ -618,6 +640,78 @@ async function removerMarca(marca) {
 }
 /* ======================= FIM ADMIN: DIRETORES ======================= */
 
+/* ======================= CATÁLOGOS DE CADASTRO ======================= */
+async function enviarCatalogoChunked(linhas, metaCollection, chunksCollection, tamanhoChunk) {
+  const totalChunks = Math.ceil(linhas.length / tamanhoChunk) || 0;
+  // apaga chunks antigos que possam ter sobrado de um cadastro maior anterior
+  const metaAntigo = await db.collection(metaCollection).doc('atual').get();
+  if (metaAntigo.exists) {
+    const antigoTotal = metaAntigo.data().totalChunks || 0;
+    for (let i = 0; i < antigoTotal; i++) { await db.collection(chunksCollection).doc('atual__' + i).delete().catch(() => {}); }
+  }
+  for (let i = 0; i < totalChunks; i++) {
+    const parte = linhas.slice(i * tamanhoChunk, (i + 1) * tamanhoChunk);
+    await db.collection(chunksCollection).doc('atual__' + i).set({ linhas: parte });
+  }
+  await db.collection(metaCollection).doc('atual').set({ totalChunks, totalLinhas: linhas.length, atualizadoEm: new Date().toISOString() });
+}
+
+async function enviarCatalogoMarcasUnidades() {
+  const arquivo = byId('catalogoMuArquivo').files[0];
+  if (!arquivo) { alert('Selecione o arquivo primeiro.'); return; }
+  showToast('Processando cadastro de Marca/Unidade...', 'ok');
+  try {
+    const buf = await arquivo.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rowsRaw = XLSX.utils.sheet_to_json(sheet, { defval: null });
+    const linhas = rowsRaw.map(r => ({
+      Marca: campoFlexivel(r, 'Marca', 'marca'),
+      Unidade: campoFlexivel(r, 'Unidade', 'unidade'),
+      Turma: campoFlexivel(r, 'Turma', 'turma'),
+      Turno: campoFlexivel(r, 'Turno', 'turno'),
+    })).filter(r => r.Marca);
+    if (!linhas.length) { alert('Nenhuma linha válida. Confira as colunas: Marca, Unidade, Turma, Turno.'); return; }
+    await enviarCatalogoChunked(linhas, 'catalogo_mu_meta', 'catalogo_mu_chunks', 3000);
+    showToast(`Cadastro enviado: ${linhas.length.toLocaleString('pt-BR')} linhas. Recarregando...`, 'ok');
+    setTimeout(() => location.reload(), 1200);
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao enviar cadastro: ' + e.message, 'danger');
+  }
+}
+
+async function enviarCatalogoSelosColecoes() {
+  const arquivo = byId('catalogoScArquivo').files[0];
+  if (!arquivo) { alert('Selecione o arquivo primeiro.'); return; }
+  showToast('Processando cadastro de Selo/Coleção...', 'ok');
+  try {
+    const buf = await arquivo.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rowsRaw = XLSX.utils.sheet_to_json(sheet, { defval: null });
+    const linhas = rowsRaw.map(r => ({
+      Selo: campoFlexivel(r, 'Selo', 'selo'),
+      'Coleção': campoFlexivel(r, 'Coleção', 'Colecao', 'coleção', 'colecao'),
+    })).filter(r => r.Selo && r['Coleção']);
+    if (!linhas.length) { alert('Nenhuma linha válida. Confira as colunas: Selo, Coleção.'); return; }
+    await enviarCatalogoChunked(linhas, 'catalogo_sc_meta', 'catalogo_sc_chunks', 3000);
+    showToast(`Cadastro enviado: ${linhas.length.toLocaleString('pt-BR')} linhas. Recarregando...`, 'ok');
+    setTimeout(() => location.reload(), 1200);
+  } catch (e) {
+    console.error(e);
+    showToast('Erro ao enviar cadastro: ' + e.message, 'danger');
+  }
+}
+
+function renderCatalogosInfo() {
+  const elMu = byId('catalogoMuInfo');
+  if (elMu) elMu.textContent = catalogoMarcasUnidades.length ? `Cadastro atual: ${catalogoMarcasUnidades.length.toLocaleString('pt-BR')} linhas.` : 'Nenhum cadastro enviado ainda — as listas usam os dados da adoção atual como base.';
+  const elSc = byId('catalogoScInfo');
+  if (elSc) elSc.textContent = catalogoSelosColecoes.length ? `Cadastro atual: ${catalogoSelosColecoes.length.toLocaleString('pt-BR')} linhas.` : 'Nenhum cadastro enviado ainda — as listas usam os dados da adoção atual como base.';
+}
+/* ======================= FIM CATÁLOGOS DE CADASTRO ======================= */
+
 /* ======================= BASE DO CICLO (rotação anual) ======================= */
 const TAMANHO_CHUNK_BASE = 3000;
 
@@ -637,6 +731,7 @@ function pctFlexivel(v) {
 
 async function carregarBaseAtual() {
   await carregarMarcasExtras();
+  await carregarCatalogos();
   try {
     const configDoc = await db.collection('config').doc('atual').get();
     if (!configDoc.exists) { baseData = SEED_BASE_DATA; recomputarDerivadosDeBaseData(); window.__cicloAtual = null; return; }
@@ -669,6 +764,33 @@ async function carregarMarcasExtras() {
     console.error('Erro ao carregar marcas extras', e);
     marcasExtras = { adicionadas: [], removidas: [] };
   }
+}
+
+let catalogoMarcasUnidades = []; // [{Marca, Unidade, Turma, Turno}] - cadastro independente da adoção atual
+let catalogoSelosColecoes = [];  // [{Selo, Coleção}] - cadastro independente da adoção atual
+
+async function carregarCatalogoChunked(metaCollection, chunksCollection) {
+  const metaDoc = await db.collection(metaCollection).doc('atual').get();
+  if (!metaDoc.exists) return [];
+  const meta = metaDoc.data();
+  const chunkPromises = [];
+  for (let i = 0; i < meta.totalChunks; i++) chunkPromises.push(db.collection(chunksCollection).doc('atual__' + i).get());
+  const chunkDocs = await Promise.all(chunkPromises);
+  let linhas = [];
+  chunkDocs.forEach(doc => { if (doc.exists) linhas = linhas.concat(doc.data().linhas); });
+  return linhas;
+}
+
+async function carregarCatalogos() {
+  try { catalogoMarcasUnidades = await carregarCatalogoChunked('catalogo_mu_meta', 'catalogo_mu_chunks'); }
+  catch (e) { console.error('Erro ao carregar catálogo de marcas/unidades', e); catalogoMarcasUnidades = []; }
+  try { catalogoSelosColecoes = await carregarCatalogoChunked('catalogo_sc_meta', 'catalogo_sc_chunks'); }
+  catch (e) { console.error('Erro ao carregar catálogo de selos/coleções', e); catalogoSelosColecoes = []; }
+}
+
+function unidadesDoCatalogo(marca) {
+  if (catalogoMarcasUnidades.length) return uniq(catalogoMarcasUnidades.filter(r=>norm(r.Marca)===norm(marca)).map(r=>r.Unidade));
+  return uniq(baseDataRegular.filter(r=>norm(r.Marca)===norm(marca)).map(r=>r.Unidade));
 }
 
 function renderBaseAtualInfo() {
@@ -721,6 +843,22 @@ async function substituirBase(file, anoBase, anoAlvo) {
   }).filter(r => r.Marca && r.Turma && r['Coleção'] && norm(r['Coleção']) !== 'não utiliza' && norm(r['Coleção']) !== 'nao utiliza');
 
   if (!linhas.length) { alert('Nenhuma linha válida encontrada no arquivo. Confira as colunas: Marca, Unidade, Turma, Turno, Selo, Coleção, Utilização.'); return; }
+
+  // normalizar grafia de Turma (evita "1º ano" vs "1º Ano" como valores diferentes)
+  const turmaCanonMap = new Map(TURMA_ORDER.map(t => [norm(t), t]));
+  const turmaFreq = {};
+  linhas.forEach(l => {
+    const k = norm(l.Turma);
+    if (!turmaCanonMap.has(k)) {
+      turmaFreq[k] = turmaFreq[k] || {};
+      turmaFreq[k][l.Turma] = (turmaFreq[k][l.Turma] || 0) + 1;
+    }
+  });
+  Object.keys(turmaFreq).forEach(k => {
+    const opcoes = turmaFreq[k];
+    turmaCanonMap.set(k, Object.keys(opcoes).sort((a,b) => opcoes[b]-opcoes[a])[0]);
+  });
+  linhas.forEach(l => { const canon = turmaCanonMap.get(norm(l.Turma)); if (canon) l.Turma = canon; });
   const totalRegular = linhas.filter(l=>l.Tipo==='Regular').length;
   const totalPT = linhas.filter(l=>l.Tipo==='ProprioTerceiro').length;
 
@@ -865,7 +1003,7 @@ function popularFiltrosPt() {
 }
 function aplicarFiltrosPt(rows) {
   const m=byId('ptfMarca').value, u=byId('ptfUnidade').value, t=byId('ptfTurma').value, tn=byId('ptfTurno').value, s=byId('ptfSelo').value, c=byId('ptfColecao').value;
-  return rows.filter(r => (!m||r.Marca===m) && (!u||r.Unidade===u) && (!t||r.Turma===t) && (!tn||r.Turno===tn) && (!s||r.Selo===s) && (!c||r['Coleção']===c));
+  return rows.filter(r => (!m||norm(r.Marca)===norm(m)) && (!u||norm(r.Unidade)===norm(u)) && (!t||norm(r.Turma)===norm(t)) && (!tn||norm(r.Turno)===norm(tn)) && (!s||norm(r.Selo)===norm(s)) && (!c||norm(r['Coleção'])===norm(c)));
 }
 
 function renderPtAjustes() {
@@ -988,7 +1126,7 @@ function init() {
   document.querySelectorAll('nav button').forEach(btn => btn.addEventListener('click', () => switchPage(btn.dataset.page)));
   updateRuleFilters(); updateExceptionUnits(); updateNewUnits(); renderNewClasses(); renderStats(); renderRules(); renderExceptions();
 }
-function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') { renderPtAjustes(); renderCustosProprioTerceiro(); } if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); } }
+function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') { renderPtAjustes(); renderCustosProprioTerceiro(); } if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); } }
 function setSelectOptions(select, vals, keep=true, includeBlank=false, blankLabel='Todos') { const old=select.value; select.innerHTML=optList(vals, includeBlank, blankLabel); if(keep && vals.includes(old)) select.value=old; }
 function updateRuleFilters() {
   const marca=byId('rMarca').value;
@@ -999,10 +1137,10 @@ function updateRuleFilters() {
   byId('rSelo').onchange = renderRules;
   renderRules();
 }
-function updateExceptionUnits() { const marca=byId('eMarca').value; const rows=baseDataRegular.filter(r=>r.Marca===marca); setSelectOptions(byId('eUnidade'), uniq(rows.map(r=>r.Unidade)), false, true, 'Selecione a unidade...'); updateExceptionTurmas(); }
+function updateExceptionUnits() { const marca=byId('eMarca').value; setSelectOptions(byId('eUnidade'), unidadesDoCatalogo(marca), false, true, 'Selecione a unidade...'); updateExceptionTurmas(); }
 function updateExceptionTurmas() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value; const rows=baseDataRegular.filter(r=>r.Marca===marca && r.Unidade===unidade); setSelectOptions(byId('eTurma'), sortTurmas(uniq(rows.map(r=>r.Turma))), false, true, 'Selecione a turma...'); updateExceptionSelos(); }
 function updateExceptionSelos() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value, turma=byId('eTurma').value; const rows=baseDataRegular.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma); setSelectOptions(byId('eSelo'), uniq(rows.map(r=>r.Selo)), false, true, 'Selecione o selo...'); renderExceptions(); }
-function updateNewUnits() { const marca=byId('nMarca').value; const vals = uniq(baseDataRegular.filter(r=>r.Marca===marca).map(r=>r.Unidade)); byId('nUnidade').innerHTML = `<option value="">Regra da marca / sem escola específica</option>` + optList(vals); }
+function updateNewUnits() { const marca=byId('nMarca').value; const vals = unidadesDoCatalogo(marca); byId('nUnidade').innerHTML = `<option value="">Regra da marca / sem escola específica</option>` + optList(vals); }
 function renderRules() {
   if(!byId('rMarca').value || !byId('rTurma').value || !byId('rSelo').value) return;
   const marca=byId('rMarca').value, turma=byId('rTurma').value, selo=byId('rSelo').value;
@@ -1182,9 +1320,15 @@ function renderStats() { const el=byId('statsBox'); if(!el) return; let p=getPan
 function popularFiltro(selectId, valores) {
   const sel = byId(selectId); if (!sel) return;
   const atual = sel.value;
-  const distintos = uniq(valores);
+  const vistos = new Map(); // norm(valor) -> primeira grafia encontrada
+  valores.forEach(v => {
+    if (v === undefined || v === null || String(v).trim() === '') return;
+    const k = norm(v);
+    if (!vistos.has(k)) vistos.set(k, String(v));
+  });
+  const distintos = [...vistos.values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   sel.innerHTML = '<option value="">Todos</option>' + distintos.map(v=>`<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
-  if (distintos.includes(atual)) sel.value = atual;
+  if (vistos.has(norm(atual))) sel.value = vistos.get(norm(atual));
 }
 function popularFiltrosPanorama(rows) {
   popularFiltro('pfMarca', rows.map(r=>r.Marca));
@@ -1194,7 +1338,7 @@ function popularFiltrosPanorama(rows) {
 }
 function aplicarFiltrosPanorama(rows) {
   const m=byId('pfMarca').value, u=byId('pfUnidade').value, t=byId('pfTurma').value, tn=byId('pfTurno').value;
-  return rows.filter(r => (!m || r.Marca===m) && (!u || r.Unidade===u) && (!t || r.Turma===t) && (!tn || r.Turno===tn));
+  return rows.filter(r => (!m || norm(r.Marca)===norm(m)) && (!u || norm(r.Unidade)===norm(u)) && (!t || norm(r.Turma)===norm(t)) && (!tn || norm(r.Turno)===norm(tn)));
 }
 function popularFiltrosFinal(rows) {
   popularFiltro('ffMarca', rows.map(r=>r.Marca));
@@ -1205,7 +1349,7 @@ function popularFiltrosFinal(rows) {
 }
 function aplicarFiltrosFinal(rows) {
   const m=byId('ffMarca').value, u=byId('ffUnidade').value, t=byId('ffTurma').value, tn=byId('ffTurno').value, s=byId('ffSelo').value;
-  return rows.filter(r => (!m || r.Marca===m) && (!u || r.Unidade===u) && (!t || r.Turma===t) && (!tn || r.Turno===tn) && (!s || r.Selo===s));
+  return rows.filter(r => (!m || norm(r.Marca)===norm(m)) && (!u || norm(r.Unidade)===norm(u)) && (!t || norm(r.Turma)===norm(t)) && (!tn || norm(r.Turno)===norm(tn)) && (!s || norm(r.Selo)===norm(s)));
 }
 
 function renderPanorama() { let rows=getPanoramaRows(); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); popularFiltrosPanorama(rows); rows=aplicarFiltrosPanorama(rows); renderTable('panoramaTable', rows, ['Status','Marca','Unidade','Turma','Turno','Selo_2026','Material_2026','Utilizacao_2026','Selo_2027','Material_2027','Utilizacao_2027'], 1000); }
