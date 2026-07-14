@@ -4,6 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>De/Para Material Didático 2027</title>
+<script>
+  try {
+    const temaSalvo = localStorage.getItem('depara_theme');
+    if (temaSalvo === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  } catch (e) {}
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -25,6 +31,9 @@
 </script>
 <style>
   :root { --bg:#f7f8fb; --card:#fff; --text:#172033; --muted:#647084; --line:#dce1ea; --brand:#006b5f; --brand2:#00a884; --warn:#a15c00; --danger:#b3261e; --ok:#137333; }
+  html[data-theme="dark"] { --bg:#12151a; --card:#1a1e25; --text:#e9ebf0; --muted:#9199a8; --line:#2c3240; --brand:#00c99c; --brand2:#00e0ac; --warn:#e0a23c; --danger:#e2645c; --ok:#4fb789; }
+  #themeToggle{ position:fixed; top:16px; right:16px; z-index:200; background:var(--card); border:1px solid var(--line); color:var(--text); width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; }
+  #themeToggle:hover{ border-color:var(--brand2); }
   * { box-sizing:border-box; }
   body { margin:0; font-family:Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); }
   header { background:linear-gradient(120deg,var(--brand),#0c3e56); color:white; padding:22px 28px; }
@@ -93,6 +102,8 @@
 </style>
 </head>
 <body>
+
+<button id="themeToggle" onclick="alternarTema()" title="Alternar tema claro/escuro">🌙</button>
 
 <div id="loginOverlay">
   <div id="loginBox">
@@ -331,6 +342,19 @@ function handleRuleSeloChange(enc) { const selo=byId('rselo_'+enc).value; setCol
 function handleModalRuleSeloChange() { setCollectionOptions('modalRuleColecao', byId('modalRuleSelo').value, 'Não utiliza'); }
 function ruleKey(marca,turma,selo,colecao) { return [marca,turma,selo,colecao].join('|||'); }
 function byId(id) { return document.getElementById(id); }
+
+/* ======================= TEMA CLARO/ESCURO ======================= */
+function aplicarTema(tema) {
+  document.documentElement.setAttribute('data-theme', tema);
+  byId('themeToggle').innerText = tema === 'dark' ? '☀️' : '🌙';
+  try { localStorage.setItem('depara_theme', tema); } catch (e) {}
+}
+function alternarTema() {
+  const atual = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  aplicarTema(atual === 'dark' ? 'light' : 'dark');
+}
+aplicarTema(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+/* ======================= FIM TEMA CLARO/ESCURO ======================= */
 function norm(s){ if(s===null||s===undefined) return ''; return String(s).trim().toLowerCase().replace(/\s+/g,' '); }
 
 const TURMA_ORDER = ["Infantil 2", "Infantil 2 Bilíngue", "Infantil 3", "Infantil 3 Bilíngue", "Infantil 4", "Infantil 4 Bilíngue", "Infantil 5", "Infantil 5 Bilíngue", "1º Ano", "1º Ano Bilíngue", "2º Ano", "2º Ano Bilíngue", "3º Ano", "3º ano bilíngue", "4º Ano", "4º ano bilíngue", "5º Ano", "5º ano bilíngue", "6º Ano", "6º Ano Bilíngue", "7º Ano", "7º ano bilíngue", "8º Ano", "8º Ano Bilíngue", "9º Ano", "9º Ano Bilíngue", "9º Ano Forte", "9º Ano Militar", "9º Ano Preparatório", "Preparatório", "CN/EPCAr", "1ª Série", "1ª série IME/ITA", "1ª série ITA", "1ª série Medicina", "1ª Série Militar", "1ª Série Militar Jr", "1ª série Preparatório", "2ª Série", "2ª série IME/ITA", "2ª série Medicina", "2ª Série Militar", "2ª Série Militar Jr", "2ª série Preparatório", "3ª Série", "3ª Série AFA/EN/EFOMM", "3ª Série EsPCEx", "3ª série Extensivo", "3ª Série IME/ITA", "3ª série M.E.D.", "3ª série Medicina", "AFA/EN/EFOMM", "EsPCEx", "Extensivo", "Extensivo 1 matéria", "Extensivo 2 matérias", "Extensivo 3 matérias", "Extensivo 4 matérias", "Extensivo 5 matérias", "Extensivo 6 matérias", "Extensivo 7 matérias", "Extensivo 8 matérias", "Extensivo 9 matérias", "Extensivo 10 matérias", "IME/ITA", "Medicina", "pH Med", "Pré IME/ITA 1", "Pré IME/ITA 2", "Pré-Vestibular", "Pré-vestibular M.E.D.", "PV medicina"];
@@ -365,7 +389,7 @@ function alternarModoLogin() {
 }
 
 async function buscarAutorizacao(email) {
-  const doc = await db.collection('usuarios').doc(norm(email)).get();
+  const doc = await db.collection('depara_usuarios').doc(norm(email)).get();
   return doc.exists ? doc.data() : null;
 }
 
@@ -489,7 +513,7 @@ function ligarListenersEdicoes() {
   const vazio = () => ({ ruleEdits:{}, exceptionEdits:{}, ruleAdditions:[], exceptionAdditions:[], newClasses:[], ptEdits:{}, ptAdditions:[] });
 
   if (currentUser.papel === 'admin') {
-    const unsub = db.collection('edicoes').onSnapshot(snapshot => {
+    const unsub = db.collection('depara_edicoes').onSnapshot(snapshot => {
       const novo = vazio();
       snapshot.forEach(doc => {
         const d = doc.data();
@@ -507,7 +531,7 @@ function ligarListenersEdicoes() {
   } else {
     const acumulado = {};
     currentUser.marcas.forEach(marca => {
-      const unsub = db.collection('edicoes').doc(marca).onSnapshot(doc => {
+      const unsub = db.collection('depara_edicoes').doc(marca).onSnapshot(doc => {
         acumulado[marca] = doc.exists ? doc.data() : vazio();
         const novo = vazio();
         Object.values(acumulado).forEach(d => {
@@ -557,7 +581,7 @@ async function salvarDiretor() {
   const marcas = Array.from(document.querySelectorAll('#adminMarcasCheckboxes input:checked')).map(el => el.value);
   if (!marcas.length) { alert('Selecione ao menos uma marca.'); return; }
   try {
-    await db.collection('usuarios').doc(email).set({ email, papel: 'diretor', marcas });
+    await db.collection('depara_usuarios').doc(email).set({ email, papel: 'diretor', marcas });
     showToast('Diretor salvo: ' + email, 'ok');
     limparFormularioDiretor();
     renderAdminUsuarios();
@@ -569,7 +593,7 @@ async function salvarDiretor() {
 async function removerDiretor(email) {
   if (!confirm('Remover o acesso de ' + email + '? Ele deixa de conseguir editar (a senha dele continua existindo, mas sem autorização).')) return;
   try {
-    await db.collection('usuarios').doc(email).delete();
+    await db.collection('depara_usuarios').doc(email).delete();
     showToast('Diretor removido', 'warn');
     renderAdminUsuarios();
   } catch (e) {
@@ -579,7 +603,7 @@ async function removerDiretor(email) {
 
 function renderAdminUsuarios() {
   popularCheckboxesMarcas([]);
-  db.collection('usuarios').where('papel', '==', 'diretor').get().then(snapshot => {
+  db.collection('depara_usuarios').where('papel', '==', 'diretor').get().then(snapshot => {
     const docs = [];
     snapshot.forEach(doc => docs.push(doc.data()));
     docs.sort((a, b) => a.email.localeCompare(b.email));
@@ -614,7 +638,7 @@ async function adicionarMarca() {
   if (!nome) { alert('Informe o nome da marca.'); return; }
   if (allBrands.includes(nome)) { alert('Essa marca já existe na lista.'); return; }
   try {
-    await db.collection('config').doc('marcas').set({
+    await db.collection('depara_config').doc('marcas').set({
       adicionadas: firebase.firestore.FieldValue.arrayUnion(nome),
       removidas: firebase.firestore.FieldValue.arrayRemove(nome)
     }, { merge: true });
@@ -628,7 +652,7 @@ async function adicionarMarca() {
 async function removerMarca(marca) {
   if (!confirm(`Remover "${marca}" das listas de seleção? Os dados já existentes dessa marca continuam preservados, ela só deixa de aparecer nos dropdowns e no cadastro de diretores.`)) return;
   try {
-    await db.collection('config').doc('marcas').set({
+    await db.collection('depara_config').doc('marcas').set({
       removidas: firebase.firestore.FieldValue.arrayUnion(marca),
       adicionadas: firebase.firestore.FieldValue.arrayRemove(marca)
     }, { merge: true });
@@ -672,7 +696,7 @@ async function enviarCatalogoMarcasUnidades() {
       Turno: campoFlexivel(r, 'Turno', 'turno'),
     })).filter(r => r.Marca);
     if (!linhas.length) { alert('Nenhuma linha válida. Confira as colunas: Marca, Unidade, Turma, Turno.'); return; }
-    await enviarCatalogoChunked(linhas, 'catalogo_mu_meta', 'catalogo_mu_chunks', 3000);
+    await enviarCatalogoChunked(linhas, 'depara_catalogo_mu_meta', 'depara_catalogo_mu_chunks', 3000);
     showToast(`Cadastro enviado: ${linhas.length.toLocaleString('pt-BR')} linhas. Recarregando...`, 'ok');
     setTimeout(() => location.reload(), 1200);
   } catch (e) {
@@ -695,7 +719,7 @@ async function enviarCatalogoSelosColecoes() {
       'Coleção': campoFlexivel(r, 'Coleção', 'Colecao', 'coleção', 'colecao'),
     })).filter(r => r.Selo && r['Coleção']);
     if (!linhas.length) { alert('Nenhuma linha válida. Confira as colunas: Selo, Coleção.'); return; }
-    await enviarCatalogoChunked(linhas, 'catalogo_sc_meta', 'catalogo_sc_chunks', 3000);
+    await enviarCatalogoChunked(linhas, 'depara_catalogo_sc_meta', 'depara_catalogo_sc_chunks', 3000);
     showToast(`Cadastro enviado: ${linhas.length.toLocaleString('pt-BR')} linhas. Recarregando...`, 'ok');
     setTimeout(() => location.reload(), 1200);
   } catch (e) {
@@ -733,14 +757,14 @@ async function carregarBaseAtual() {
   await carregarMarcasExtras();
   await carregarCatalogos();
   try {
-    const configDoc = await db.collection('config').doc('atual').get();
+    const configDoc = await db.collection('depara_config').doc('atual').get();
     if (!configDoc.exists) { baseData = SEED_BASE_DATA; recomputarDerivadosDeBaseData(); window.__cicloAtual = null; return; }
     const cfg = configDoc.data();
-    const metaDoc = await db.collection('bases_meta').doc(cfg.cicloId).get();
+    const metaDoc = await db.collection('depara_bases_meta').doc(cfg.cicloId).get();
     if (!metaDoc.exists) { baseData = SEED_BASE_DATA; recomputarDerivadosDeBaseData(); window.__cicloAtual = null; return; }
     const meta = metaDoc.data();
     const chunkPromises = [];
-    for (let i = 0; i < meta.totalChunks; i++) chunkPromises.push(db.collection('bases_chunks').doc(cfg.cicloId + '__' + i).get());
+    for (let i = 0; i < meta.totalChunks; i++) chunkPromises.push(db.collection('depara_bases_chunks').doc(cfg.cicloId + '__' + i).get());
     const chunkDocs = await Promise.all(chunkPromises);
     let linhas = [];
     chunkDocs.forEach(doc => { if (doc.exists) linhas = linhas.concat(doc.data().linhas); });
@@ -758,7 +782,7 @@ async function carregarBaseAtual() {
 let marcasExtras = { adicionadas: [], removidas: [] };
 async function carregarMarcasExtras() {
   try {
-    const doc = await db.collection('config').doc('marcas').get();
+    const doc = await db.collection('depara_config').doc('marcas').get();
     marcasExtras = doc.exists ? { adicionadas: doc.data().adicionadas || [], removidas: doc.data().removidas || [] } : { adicionadas: [], removidas: [] };
   } catch (e) {
     console.error('Erro ao carregar marcas extras', e);
@@ -782,9 +806,9 @@ async function carregarCatalogoChunked(metaCollection, chunksCollection) {
 }
 
 async function carregarCatalogos() {
-  try { catalogoMarcasUnidades = await carregarCatalogoChunked('catalogo_mu_meta', 'catalogo_mu_chunks'); }
+  try { catalogoMarcasUnidades = await carregarCatalogoChunked('depara_catalogo_mu_meta', 'depara_catalogo_mu_chunks'); }
   catch (e) { console.error('Erro ao carregar catálogo de marcas/unidades', e); catalogoMarcasUnidades = []; }
-  try { catalogoSelosColecoes = await carregarCatalogoChunked('catalogo_sc_meta', 'catalogo_sc_chunks'); }
+  try { catalogoSelosColecoes = await carregarCatalogoChunked('depara_catalogo_sc_meta', 'depara_catalogo_sc_chunks'); }
   catch (e) { console.error('Erro ao carregar catálogo de selos/coleções', e); catalogoSelosColecoes = []; }
 }
 
@@ -865,22 +889,22 @@ async function substituirBase(file, anoBase, anoAlvo) {
   const novoCicloId = 'ciclo_' + anoAlvo + '_' + Date.now();
 
   // 1. arquivar ciclo atual, se existir
-  const configDoc = await db.collection('config').doc('atual').get();
+  const configDoc = await db.collection('depara_config').doc('atual').get();
   if (configDoc.exists) {
     const cfgAtual = configDoc.data();
-    await db.collection('historico_ciclos').doc(cfgAtual.cicloId).set({ anoBase: cfgAtual.anoBase, anoAlvo: cfgAtual.anoAlvo, arquivadoEm: new Date().toISOString() });
-    const metaAtualDoc = await db.collection('bases_meta').doc(cfgAtual.cicloId).get();
+    await db.collection('depara_historico_ciclos').doc(cfgAtual.cicloId).set({ anoBase: cfgAtual.anoBase, anoAlvo: cfgAtual.anoAlvo, arquivadoEm: new Date().toISOString() });
+    const metaAtualDoc = await db.collection('depara_bases_meta').doc(cfgAtual.cicloId).get();
     if (metaAtualDoc.exists) {
       const metaAtual = metaAtualDoc.data();
       for (let i = 0; i < metaAtual.totalChunks; i++) {
-        const chunkDoc = await db.collection('bases_chunks').doc(cfgAtual.cicloId + '__' + i).get();
-        if (chunkDoc.exists) await db.collection('historico_bases_chunks').doc(cfgAtual.cicloId + '__' + i).set(chunkDoc.data());
+        const chunkDoc = await db.collection('depara_bases_chunks').doc(cfgAtual.cicloId + '__' + i).get();
+        if (chunkDoc.exists) await db.collection('depara_historico_bases_chunks').doc(cfgAtual.cicloId + '__' + i).set(chunkDoc.data());
       }
-      await db.collection('historico_bases_meta').doc(cfgAtual.cicloId).set(metaAtual);
+      await db.collection('depara_historico_bases_meta').doc(cfgAtual.cicloId).set(metaAtual);
     }
-    const edicoesSnap = await db.collection('edicoes').get();
+    const edicoesSnap = await db.collection('depara_edicoes').get();
     for (const doc of edicoesSnap.docs) {
-      await db.collection('historico_edicoes').doc(cfgAtual.cicloId + '__' + doc.id).set(doc.data());
+      await db.collection('depara_historico_edicoes').doc(cfgAtual.cicloId + '__' + doc.id).set(doc.data());
     }
   }
 
@@ -888,16 +912,16 @@ async function substituirBase(file, anoBase, anoAlvo) {
   const totalChunks = Math.ceil(linhas.length / TAMANHO_CHUNK_BASE);
   for (let i = 0; i < totalChunks; i++) {
     const parte = linhas.slice(i * TAMANHO_CHUNK_BASE, (i + 1) * TAMANHO_CHUNK_BASE);
-    await db.collection('bases_chunks').doc(novoCicloId + '__' + i).set({ linhas: parte });
+    await db.collection('depara_bases_chunks').doc(novoCicloId + '__' + i).set({ linhas: parte });
   }
-  await db.collection('bases_meta').doc(novoCicloId).set({ totalChunks, totalLinhas: linhas.length, anoBase, anoAlvo, criadoEm: new Date().toISOString() });
+  await db.collection('depara_bases_meta').doc(novoCicloId).set({ totalChunks, totalLinhas: linhas.length, anoBase, anoAlvo, criadoEm: new Date().toISOString() });
 
   // 3. zerar edições das marcas presentes na nova base
   const marcasNovas = [...new Set(linhas.map(r => r.Marca))];
-  for (const marca of marcasNovas) { await db.collection('edicoes').doc(marca).delete().catch(() => {}); }
+  for (const marca of marcasNovas) { await db.collection('depara_edicoes').doc(marca).delete().catch(() => {}); }
 
   // 4. apontar o ciclo atual para a nova base
-  await db.collection('config').doc('atual').set({ cicloId: novoCicloId, anoBase, anoAlvo, atualizadoEm: new Date().toISOString() });
+  await db.collection('depara_config').doc('atual').set({ cicloId: novoCicloId, anoBase, anoAlvo, atualizadoEm: new Date().toISOString() });
 
   showToast(`Nova base carregada: ${totalRegular.toLocaleString('pt-BR')} regulares, ${totalPT.toLocaleString('pt-BR')} próprio/terceiro. Recarregando...`, 'ok');
   setTimeout(() => location.reload(), 1800);
@@ -905,7 +929,7 @@ async function substituirBase(file, anoBase, anoAlvo) {
 
 async function renderHistoricoCiclos() {
   try {
-    const snap = await db.collection('historico_ciclos').get();
+    const snap = await db.collection('depara_historico_ciclos').get();
     const ciclos = [];
     snap.forEach(doc => ciclos.push({ id: doc.id, ...doc.data() }));
     ciclos.sort((a, b) => (b.arquivadoEm || '').localeCompare(a.arquivadoEm || ''));
@@ -924,16 +948,16 @@ async function renderHistoricoCiclos() {
 async function baixarHistoricoCiclo(ciclo) {
   showToast('Preparando arquivo do histórico...', 'ok');
   try {
-    const metaDoc = await db.collection('historico_bases_meta').doc(ciclo.id).get();
+    const metaDoc = await db.collection('depara_historico_bases_meta').doc(ciclo.id).get();
     let linhasBase = [];
     if (metaDoc.exists) {
       const meta = metaDoc.data();
       for (let i = 0; i < meta.totalChunks; i++) {
-        const chunkDoc = await db.collection('historico_bases_chunks').doc(ciclo.id + '__' + i).get();
+        const chunkDoc = await db.collection('depara_historico_bases_chunks').doc(ciclo.id + '__' + i).get();
         if (chunkDoc.exists) linhasBase = linhasBase.concat(chunkDoc.data().linhas);
       }
     }
-    const edicoesSnap = await db.collection('historico_edicoes').where(firebase.firestore.FieldPath.documentId(), '>=', ciclo.id + '__').where(firebase.firestore.FieldPath.documentId(), '<', ciclo.id + '__\uf8ff').get();
+    const edicoesSnap = await db.collection('depara_historico_edicoes').where(firebase.firestore.FieldPath.documentId(), '>=', ciclo.id + '__').where(firebase.firestore.FieldPath.documentId(), '<', ciclo.id + '__\uf8ff').get();
     const edicoesPorMarca = {};
     edicoesSnap.forEach(doc => { edicoesPorMarca[doc.id.replace(ciclo.id + '__', '')] = doc.data(); });
     const pacote = { ciclo, base: linhasBase, edicoes: edicoesPorMarca };
@@ -983,7 +1007,7 @@ function ligarListenerProprioTerceiro() {
   ptDados = {};
   const marcas = currentUser.papel === 'admin' ? allBrands : currentUser.marcas;
   marcas.forEach(marca => {
-    const unsub = db.collection('custos_proprio_terceiro').doc(marca).onSnapshot(doc => {
+    const unsub = db.collection('depara_custos_proprio_terceiro').doc(marca).onSnapshot(doc => {
       ptDados[marca] = doc.exists ? doc.data() : {};
       renderCustosProprioTerceiro();
     }, e => console.error('Erro ao sincronizar custos próprio/terceiro', e));
@@ -1036,13 +1060,13 @@ function renderPtAjustes() {
 function savePtEdit(id, deleted) {
   const r=baseDataProprioTerceiro.find(x=>x.id===id); if(!r) return; const marca=r.Marca;
   const valor={deleted, selo2027:byId('ptselo_'+id).value, colecao2027:byId('ptcol_'+id).value.trim() || r['Coleção'], pct2027:normalizePct(byId('ptpct_'+id).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString()};
-  db.collection('edicoes').doc(marca).set({ ptEdits: { [id]: valor } }, {merge:true})
+  db.collection('depara_edicoes').doc(marca).set({ ptEdits: { [id]: valor } }, {merge:true})
     .then(()=>showToast((deleted?'Alteração excluída':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'danger':'ok'))
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
 }
 function clearPtEdit(id) {
   const r=baseDataProprioTerceiro.find(x=>x.id===id); if(!r) return; const marca=r.Marca;
-  db.collection('edicoes').doc(marca).update(new firebase.firestore.FieldPath('ptEdits', String(id)), firebase.firestore.FieldValue.delete())
+  db.collection('depara_edicoes').doc(marca).update(new firebase.firestore.FieldPath('ptEdits', String(id)), firebase.firestore.FieldValue.delete())
     .then(()=>showToast('Alteração revertida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
     .catch(e=>showToast('Erro ao reverter: '+e.message, 'danger'));
 }
@@ -1058,14 +1082,14 @@ function addPtRow() {
   const colecao2027 = prompt('Nome da nova coleção/material:'); if (!colecao2027) return;
   const pct2027 = normalizePct(prompt('% de utilização entre 0 e 1:', '1'));
   const obj = { Marca:marca, Unidade:unidade, Turma:turma, Turno:turno, baseSelo, selo2027, colecao2027, pct2027, autor: currentUser?currentUser.email:'', quando:new Date().toISOString() };
-  db.collection('edicoes').doc(marca).set({ ptAdditions: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
+  db.collection('depara_edicoes').doc(marca).set({ ptAdditions: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
     .then(()=>showToast('Material adicionado'+(currentUser?(' · '+currentUser.email):''), 'ok'))
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
 }
 function removePtAddition(index) {
   const obj = state.ptAdditions[index];
   if (!obj) return;
-  db.collection('edicoes').doc(obj.Marca).update({ ptAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
+  db.collection('depara_edicoes').doc(obj.Marca).update({ ptAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
     .then(()=>showToast('Material removido'+(currentUser?(' · '+currentUser.email):''), 'warn'))
     .catch(e=>showToast('Erro ao remover: '+e.message, 'danger'));
 }
@@ -1092,7 +1116,7 @@ function salvarProprioTerceiro(marca, chave) {
   const custo = parseFloat(String(byId('ptcusto_'+encId).value).replace(',', '.')) || 0;
   const qtdEntregas = parseInt(byId('ptqtd_'+encId).value, 10) || 0;
   const valor = { custo, qtdEntregas, autor: currentUser ? currentUser.email : '', quando: new Date().toISOString() };
-  db.collection('custos_proprio_terceiro').doc(marca).set({ [chave]: valor }, { merge: true })
+  db.collection('depara_custos_proprio_terceiro').doc(marca).set({ [chave]: valor }, { merge: true })
     .then(() => showToast('Custo salvo' + (currentUser ? (' · ' + currentUser.email) : ''), 'ok'))
     .catch(e => showToast('Erro ao salvar: ' + e.message, 'danger'));
 }
@@ -1166,13 +1190,13 @@ function renderRules() {
 function saveRuleEdit(kEnc, deleted) {
   const k=decodeURIComponent(kEnc); const enc=safeEnc(k); const parts=k.split('|||'); const marca=parts[0]; const colecao=parts[3];
   const valor={deleted, selo2027:byId('rselo_'+enc).value, colecao2027:byId('rcol_'+enc).value.trim() || colecao, pct2027:normalizePct(byId('rpct_'+enc).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString()};
-  db.collection('edicoes').doc(marca).set({ ruleEdits: { [k]: valor } }, {merge:true})
+  db.collection('depara_edicoes').doc(marca).set({ ruleEdits: { [k]: valor } }, {merge:true})
     .then(()=>showToast((deleted?'Alteração excluída':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'danger':'ok'))
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
 }
 function clearRuleEdit(kEnc) {
   const k=decodeURIComponent(kEnc); const marca=k.split('|||')[0];
-  db.collection('edicoes').doc(marca).update(new firebase.firestore.FieldPath('ruleEdits', k), firebase.firestore.FieldValue.delete())
+  db.collection('depara_edicoes').doc(marca).update(new firebase.firestore.FieldPath('ruleEdits', k), firebase.firestore.FieldValue.delete())
     .then(()=>showToast('Alteração revertida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
     .catch(e=>showToast('Erro ao reverter: '+e.message, 'danger'));
 }
@@ -1194,7 +1218,7 @@ function saveRuleAdditionFromModal() {
   const selo2027=byId('modalRuleSelo').value, colecao2027=byId('modalRuleColecao').value, pct2027=normalizePct(byId('modalRulePct').value);
   if(!selo2027 || !colecao2027) { alert('Selecione selo e coleção.'); return; }
   const obj={Marca:marca,Turma:turma,baseSelo,selo2027,colecao2027,pct2027,autor:currentUser?currentUser.email:'',quando:new Date().toISOString()};
-  db.collection('edicoes').doc(marca).set({ ruleAdditions: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
+  db.collection('depara_edicoes').doc(marca).set({ ruleAdditions: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
     .then(()=>showToast('Coleção adicionada'+(currentUser?(' · '+currentUser.email):''), 'ok'))
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
   closeRuleAddModal();
@@ -1203,7 +1227,7 @@ function removeRuleAddition(localIndex, marca, turma, selo) {
   const matching = state.ruleAdditions.filter(a=>a.Marca===marca && a.Turma===turma && a.baseSelo===selo);
   const obj = matching[localIndex];
   if(!obj) return;
-  db.collection('edicoes').doc(marca).update({ ruleAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
+  db.collection('depara_edicoes').doc(marca).update({ ruleAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
     .then(()=>showToast('Coleção removida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
     .catch(e=>showToast('Erro ao remover: '+e.message, 'danger'));
 }
@@ -1219,13 +1243,13 @@ function renderExceptions() {
 function saveExceptionEdit(id, deleted) {
   const r=baseData.find(x=>x.id===id); const marca=r.Marca;
   const valor={deleted, selo2027:byId('eselo_'+id).value, colecao2027:byId('ecol_'+id).value.trim() || r['Coleção'], pct2027:normalizePct(byId('epct_'+id).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString()};
-  db.collection('edicoes').doc(marca).set({ exceptionEdits: { [id]: valor } }, {merge:true})
+  db.collection('depara_edicoes').doc(marca).set({ exceptionEdits: { [id]: valor } }, {merge:true})
     .then(()=>showToast((deleted?'Alteração excluída':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'danger':'ok'))
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
 }
 function clearExceptionEdit(id) {
   const r=baseData.find(x=>x.id===id); const marca=r.Marca;
-  db.collection('edicoes').doc(marca).update(new firebase.firestore.FieldPath('exceptionEdits', String(id)), firebase.firestore.FieldValue.delete())
+  db.collection('depara_edicoes').doc(marca).update(new firebase.firestore.FieldPath('exceptionEdits', String(id)), firebase.firestore.FieldValue.delete())
     .then(()=>showToast('Alteração revertida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
     .catch(e=>showToast('Erro ao reverter: '+e.message, 'danger'));
 }
@@ -1236,7 +1260,7 @@ function addExceptionRow() {
   const colecao2027=prompt('Informe o nome da nova coleção/material:'); if(!colecao2027) return;
   const pct2027=normalizePct(prompt('Informe o % de utilização entre 0 e 1:', '1'));
   const obj={Marca:marca,Unidade:unidade,Turma:turma,Turno:turno,baseSelo,selo2027,colecao2027,pct2027,autor:currentUser?currentUser.email:'',quando:new Date().toISOString()};
-  db.collection('edicoes').doc(marca).set({ exceptionAdditions: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
+  db.collection('depara_edicoes').doc(marca).set({ exceptionAdditions: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
     .then(()=>showToast('Exceção adicionada'+(currentUser?(' · '+currentUser.email):''), 'ok'))
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
 }
@@ -1244,7 +1268,7 @@ function removeExceptionAddition(localIndex, marca, unidade, turma, selo) {
   const matching = state.exceptionAdditions.filter(a=>a.Marca===marca && a.Unidade===unidade && a.Turma===turma && a.baseSelo===selo);
   const obj = matching[localIndex];
   if(!obj) return;
-  db.collection('edicoes').doc(marca).update({ exceptionAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
+  db.collection('depara_edicoes').doc(marca).update({ exceptionAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
     .then(()=>showToast('Exceção removida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
     .catch(e=>showToast('Erro ao remover: '+e.message, 'danger'));
 }
@@ -1252,7 +1276,7 @@ function saveNewClass() {
   const marca=byId('nMarca').value;
   const obj={Marca:marca, Unidade:byId('nUnidade').value, Turma:byId('nTurma').value.trim(), Turno:byId('nTurno').value, selo2027:byId('nSelo').value, colecao2027:byId('nColecao').value.trim(), pct2027:normalizePct(byId('nPct').value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString()};
   if(!obj.Marca || !obj.Turma || !obj.selo2027 || !obj.colecao2027) { alert('Preencha Marca, Nova turma, Selo e Coleção.'); return; }
-  db.collection('edicoes').doc(marca).set({ newClasses: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
+  db.collection('depara_edicoes').doc(marca).set({ newClasses: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
     .then(()=>{ byId('nColecao').value=''; showToast('Nova turma salva'+(currentUser?(' · '+currentUser.email):''), 'ok'); })
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
 }
@@ -1260,7 +1284,7 @@ function renderNewClasses() { let html='<thead><tr><th>Marca</th><th>Escola</th>
 function removeNewClass(index) {
   const obj = state.newClasses[index];
   if (!obj) return;
-  db.collection('edicoes').doc(obj.Marca).update({ newClasses: firebase.firestore.FieldValue.arrayRemove(obj) })
+  db.collection('depara_edicoes').doc(obj.Marca).update({ newClasses: firebase.firestore.FieldValue.arrayRemove(obj) })
     .then(() => showToast('Nova turma removida' + (currentUser ? (' · ' + currentUser.email) : ''), 'warn'))
     .catch(e => showToast('Erro ao remover: ' + e.message, 'danger'));
 }
@@ -1268,7 +1292,7 @@ function clearNewClasses() {
   const marcas = currentUser.papel === 'admin' ? [...new Set(state.newClasses.map(c => c.Marca))] : currentUser.marcas;
   if (!marcas.length) { alert('Não há novas turmas para remover.'); return; }
   if (!confirm('Deseja remover todas as novas turmas cadastradas para: ' + marcas.join(', ') + '?')) return;
-  Promise.all(marcas.map(m => db.collection('edicoes').doc(m).update({ newClasses: [] }).catch(() => null)))
+  Promise.all(marcas.map(m => db.collection('depara_edicoes').doc(m).update({ newClasses: [] }).catch(() => null)))
     .then(() => showToast('Novas turmas removidas', 'warn'));
 }
 function getFinalRows() {
@@ -1368,7 +1392,7 @@ function resetAll() {
     marcas = currentUser.marcas;
   }
   if (!confirm('Isso apagará PERMANENTEMENTE as alterações salvas de: ' + marcas.join(', ') + '. Essa ação afeta todos que usam a ferramenta (dado compartilhado). Deseja continuar?')) return;
-  Promise.all(marcas.map(m => db.collection('edicoes').doc(m).delete()))
+  Promise.all(marcas.map(m => db.collection('depara_edicoes').doc(m).delete()))
     .then(() => showToast('Alterações apagadas', 'warn'))
     .catch(e => showToast('Erro ao apagar: ' + e.message, 'danger'));
 }
