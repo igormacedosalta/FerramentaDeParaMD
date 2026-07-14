@@ -30,29 +30,29 @@
   const db = firebase.firestore();
 </script>
 <style>
-  :root { --bg:#f7f8fb; --card:#fff; --text:#172033; --muted:#647084; --line:#dce1ea; --brand:#006b5f; --brand2:#00a884; --warn:#a15c00; --danger:#b3261e; --ok:#137333; }
-  html[data-theme="dark"] { --bg:#12151a; --card:#1a1e25; --text:#e9ebf0; --muted:#9199a8; --line:#2c3240; --brand:#00c99c; --brand2:#00e0ac; --warn:#e0a23c; --danger:#e2645c; --ok:#4fb789; }
+  :root { --bg:#f7f8fb; --card:#fff; --card-alt:#fbfcfe; --text:#172033; --muted:#647084; --line:#dce1ea; --brand:#006b5f; --brand2:#00a884; --warn:#a15c00; --danger:#b3261e; --ok:#137333; --header-grad-start:#006b5f; --th-bg:#f1f4f8; --brand-soft-bg:#eef6f4; --brand-soft-border:#c7e6df; --danger-soft-bg:#fff1f0; --danger-soft-border:#ffd0cc; --ok-soft-bg:#e9f6ee; --warn-soft-bg:#fff3df; --pill-bg:#eef2f7; --pill-text:#405066; --help-bg:#f5fbfa; --help-border:#cbece5; --help-text:#1a584f; }
+  html[data-theme="dark"] { --bg:#12151a; --card:#1a1e25; --card-alt:#20252e; --text:#e9ebf0; --muted:#9199a8; --line:#2c3240; --brand:#00c99c; --brand2:#00e0ac; --warn:#e0a23c; --danger:#e2645c; --ok:#4fb789; --header-grad-start:#00695c; --th-bg:#20252e; --brand-soft-bg:rgba(0,201,156,.14); --brand-soft-border:rgba(0,201,156,.3); --danger-soft-bg:rgba(226,100,92,.14); --danger-soft-border:rgba(226,100,92,.3); --ok-soft-bg:rgba(79,183,137,.14); --warn-soft-bg:rgba(224,162,60,.14); --pill-bg:#232936; --pill-text:#b7c2d6; --help-bg:rgba(0,201,156,.08); --help-border:rgba(0,201,156,.25); --help-text:#7fe0c4; }
   #themeToggle{ position:fixed; top:16px; right:16px; z-index:200; background:var(--card); border:1px solid var(--line); color:var(--text); width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; }
   #themeToggle:hover{ border-color:var(--brand2); }
   * { box-sizing:border-box; }
   body { margin:0; font-family:Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); }
-  header { background:linear-gradient(120deg,var(--brand),#0c3e56); color:white; padding:22px 28px; }
+  header { background:linear-gradient(120deg,var(--header-grad-start),#0c3e56); color:white; padding:22px 28px; }
   header h1 { margin:0 0 8px; font-size:24px; }
   header p { margin:0; opacity:.9; font-size:14px; max-width:1100px; }
-  nav { display:flex; gap:8px; flex-wrap:wrap; padding:14px 20px; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
-  nav button { border:1px solid var(--line); background:#fff; padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:600; color:#233044; }
+  nav { display:flex; gap:8px; flex-wrap:wrap; padding:14px 20px; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  nav button { border:1px solid var(--line); background:var(--card); padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:600; color:var(--text); }
   nav button.active { background:var(--brand); color:white; border-color:var(--brand); }
   main { padding:20px; max-width:1450px; margin:0 auto; }
   .page { display:none; } .page.active { display:block; }
   .grid { display:grid; grid-template-columns:repeat(4,minmax(180px,1fr)); gap:12px; align-items:end; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
   label { display:block; font-size:12px; color:var(--muted); margin-bottom:5px; font-weight:700; }
-  select, input { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:9px; background:white; color:var(--text); }
+  select, input { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:9px; background:var(--card); color:var(--text); }
   input[type="number"] { min-width:90px; }
 
   /* ---- Login ---- */
   #loginOverlay { position:fixed; inset:0; background:linear-gradient(120deg,var(--brand),#0c3e56); display:flex; align-items:center; justify-content:center; z-index:100; }
-  #loginBox { background:#fff; border-radius:16px; padding:36px 32px; width:100%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  #loginBox { background:var(--card); border-radius:16px; padding:36px 32px; width:100%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
   #loginBox h2 { margin:0 0 6px; font-size:20px; color:var(--text); }
   #loginBox p.sub { margin:0 0 22px; font-size:13px; color:var(--muted); }
   #loginBox label { margin-top:14px; }
@@ -68,26 +68,26 @@
   header .header-row { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; }
   .autor-tag { font-size:11px; color:var(--muted); font-style:italic; }
   button.primary { background:var(--brand); color:white; border:none; border-radius:9px; padding:10px 13px; cursor:pointer; font-weight:700; }
-  button.secondary { background:#eef6f4; color:var(--brand); border:1px solid #c7e6df; border-radius:9px; padding:9px 12px; cursor:pointer; font-weight:700; }
-  button.danger { background:#fff1f0; color:var(--danger); border:1px solid #ffd0cc; border-radius:9px; padding:9px 12px; cursor:pointer; font-weight:700; }
+  button.secondary { background:var(--brand-soft-bg); color:var(--brand); border:1px solid var(--brand-soft-border); border-radius:9px; padding:9px 12px; cursor:pointer; font-weight:700; }
+  button.danger { background:var(--danger-soft-bg); color:var(--danger); border:1px solid var(--danger-soft-border); border-radius:9px; padding:9px 12px; cursor:pointer; font-weight:700; }
   .table-wrap { overflow:auto; max-height:62vh; border:1px solid var(--line); border-radius:12px; }
-  table { width:100%; border-collapse:collapse; background:white; font-size:13px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); font-size:13px; }
   th, td { padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
-  th { background:#f1f4f8; position:sticky; top:0; z-index:1; text-align:left; font-size:12px; color:#3b4658; }
-  tr:hover td { background:#fbfcfe; }
+  th { background:var(--th-bg); position:sticky; top:0; z-index:1; text-align:left; font-size:12px; color:var(--text); }
+  tr:hover td { background:var(--card-alt); }
   .muted { color:var(--muted); font-size:13px; }
-  .pill { display:inline-block; padding:3px 8px; border-radius:999px; background:#eef2f7; color:#405066; font-size:12px; font-weight:700; }
-  .pill.ok { background:#e9f6ee; color:var(--ok); } .pill.warn { background:#fff3df; color:var(--warn); } .pill.danger { background:#fdeceb; color:var(--danger); }
+  .pill { display:inline-block; padding:3px 8px; border-radius:999px; background:var(--pill-bg); color:var(--pill-text); font-size:12px; font-weight:700; }
+  .pill.ok { background:var(--ok-soft-bg); color:var(--ok); } .pill.warn { background:var(--warn-soft-bg); color:var(--warn); } .pill.danger { background:var(--danger-soft-bg); color:var(--danger); }
   .stats { display:grid; grid-template-columns:repeat(4,minmax(180px,1fr)); gap:12px; }
-  .stat { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
   .stat .num { font-size:24px; font-weight:800; margin-top:4px; }
   .row-actions { display:flex; gap:8px; flex-wrap:wrap; }
-  .help { background:#f5fbfa; border:1px solid #cbece5; color:#1a584f; padding:12px; border-radius:12px; margin-bottom:12px; }
+  .help { background:var(--help-bg); border:1px solid var(--help-border); color:var(--help-text); padding:12px; border-radius:12px; margin-bottom:12px; }
   .small { font-size:12px; }
   .wide { grid-column:span 2; }
   @media (max-width:900px) { .grid,.stats { grid-template-columns:1fr; } .wide { grid-column:span 1; } nav { position:static; } }
   .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:50; padding:20px; }
-  .modal { background:#fff; border-radius:16px; max-width:560px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,.25); padding:20px; }
+  .modal { background:var(--card); border-radius:16px; max-width:560px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,.25); padding:20px; }
   .modal h3 { margin:0 0 8px; }
   .modal .row-actions { margin-top:16px; justify-content:flex-end; }
   button.primary, button.secondary, button.danger { transition: transform .08s ease, box-shadow .08s ease; }
@@ -346,8 +346,14 @@ function byId(id) { return document.getElementById(id); }
 /* ======================= TEMA CLARO/ESCURO ======================= */
 function aplicarTema(tema) {
   document.documentElement.setAttribute('data-theme', tema);
-  byId('themeToggle').innerText = tema === 'dark' ? '☀️' : '🌙';
+  atualizarIconeTema();
   try { localStorage.setItem('depara_theme', tema); } catch (e) {}
+}
+function atualizarIconeTema() {
+  const tema = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  const icone = tema === 'dark' ? '☀️' : '🌙';
+  const btn1 = byId('themeToggle'); if (btn1) btn1.innerText = icone;
+  const btn2 = byId('themeToggleBadge'); if (btn2) btn2.innerText = icone;
 }
 function alternarTema() {
   const atual = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
@@ -480,7 +486,9 @@ async function mostrarApp() {
   byId('appWrap').style.display = 'block';
   const isAdmin = currentUser.papel === 'admin';
   const tag = isAdmin ? 'Admin' : ('Diretor · ' + currentUser.marcas.map(escapeHtml).join(', '));
-  byId('userBadge').innerHTML = `<div class="name">${escapeHtml(currentUser.email)}</div><div class="tag">${tag}</div><button onclick="logout()">Sair</button>`;
+  byId('userBadge').innerHTML = `<div class="name">${escapeHtml(currentUser.email)}</div><div class="tag">${tag}</div><button onclick="alternarTema()" title="Alternar tema claro/escuro" id="themeToggleBadge">🌙</button><button onclick="logout()">Sair</button>`;
+  byId('themeToggle').style.display = 'none';
+  atualizarIconeTema();
   document.querySelectorAll('nav button[data-page="admin"]').forEach(b => b.style.display = isAdmin ? '' : 'none');
   showToast('Carregando base de dados...', 'ok');
   await carregarBaseAtual();
