@@ -208,6 +208,13 @@
     <div class="card"><div class="table-wrap"><table id="finalTable"></table></div></div>
   </section>
   <section id="admin" class="page">
+    <div class="card" style="border-color:var(--danger);">
+      <h3 style="margin-top:0;color:var(--danger);">Apagar tudo e recomeçar</h3>
+      <div class="help">Apaga a referência do ano vigente (passo 1), o ciclo atual (base do passo 3, já processada) e todas as edições/turmas pendentes de todas as marcas (Regras, Exceções, Novas turmas). <strong>Não apaga</strong> o histórico de ciclos anteriores já arquivados. Use isso quando quiser subir os passos 1 e 3 do zero.</div>
+      <div class="row-actions" style="margin-top:14px;">
+        <button class="danger" onclick="confirmarApagarTudo()">Apagar referência, ciclo atual e edições</button>
+      </div>
+    </div>
     <div class="card">
       <h2>7. Diretores e configuração do ano seguinte</h2>
       <div class="help">
@@ -922,6 +929,46 @@ async function renderReferenciaInfo() {
       ? `Referência atual: ${meta.data().totalLinhas.toLocaleString('pt-BR')} linhas, enviada em ${new Date(meta.data().atualizadoEm).toLocaleString('pt-BR')}.`
       : 'Nenhuma lista de adoção do ano vigente enviada ainda — envie no passo 1 antes de gerar as turmas do ano seguinte.';
   } catch (e) { el.textContent = 'Não foi possível carregar informações da referência.'; }
+}
+
+function confirmarApagarTudo() {
+  const confirmText = prompt('Isso vai apagar PERMANENTEMENTE: a referência do ano vigente, o ciclo atual (turmas do ano seguinte já processadas) e todas as edições/turmas pendentes de todas as marcas (Regras, Exceções, Novas turmas). O histórico de ciclos anteriores arquivados NÃO será afetado.\n\nDigite CONFIRMAR para prosseguir:');
+  if (confirmText !== 'CONFIRMAR') { showToast('Operação cancelada', 'warn'); return; }
+  showToast('Apagando tudo — isso pode levar alguns minutos...', 'ok');
+  apagarTudoERecomecar().catch(e => {
+    console.error(e);
+    showToast('Erro ao apagar: ' + e.message, 'danger');
+  });
+}
+
+async function apagarTudoERecomecar() {
+  // 1. apagar referencia do ano vigente
+  const metaRef = await db.collection('depara_referencia_meta').doc('atual').get();
+  if (metaRef.exists) {
+    const totalChunks = metaRef.data().totalChunks || 0;
+    for (let i = 0; i < totalChunks; i++) { await db.collection('depara_referencia_chunks').doc('atual__' + i).delete().catch(() => {}); }
+    await db.collection('depara_referencia_meta').doc('atual').delete();
+  }
+
+  // 2. apagar ciclo atual (base do passo 3 já processada)
+  const configDoc = await db.collection('depara_config').doc('atual').get();
+  if (configDoc.exists) {
+    const cfgAtual = configDoc.data();
+    const metaBase = await db.collection('depara_bases_meta').doc(cfgAtual.cicloId).get();
+    if (metaBase.exists) {
+      const totalChunks = metaBase.data().totalChunks || 0;
+      for (let i = 0; i < totalChunks; i++) { await db.collection('depara_bases_chunks').doc(cfgAtual.cicloId + '__' + i).delete().catch(() => {}); }
+      await db.collection('depara_bases_meta').doc(cfgAtual.cicloId).delete();
+    }
+    await db.collection('depara_config').doc('atual').delete();
+  }
+
+  // 3. apagar edicoes (Regras/Exceções/Novas turmas/turmas pendentes) de todas as marcas
+  const edicoesSnap = await db.collection('depara_edicoes').get();
+  for (const doc of edicoesSnap.docs) { await doc.ref.delete().catch(() => {}); }
+
+  showToast('Tudo apagado. Recarregando...', 'ok');
+  setTimeout(() => location.reload(), 1500);
 }
 
 function construirMapasHeranca(referencia) {
