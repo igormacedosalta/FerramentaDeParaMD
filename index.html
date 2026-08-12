@@ -1184,14 +1184,23 @@ function ligarListenerProprioTerceiro() {
 }
 
 function popularFiltrosPt() {
-  let rows = baseDataProprioTerceiro;
-  if (restrictMarcas) rows = rows.filter(r => restrictMarcas.includes(r.Marca));
-  popularFiltro('ptfMarca', rows.map(r=>r.Marca));
-  popularFiltro('ptfUnidade', rows.map(r=>r.Unidade));
-  popularFiltro('ptfTurma', rows.map(r=>r.Turma), true);
-  popularFiltro('ptfTurno', rows.map(r=>r.Turno));
-  popularFiltro('ptfSelo', rows.map(r=>r.Selo));
-  popularFiltro('ptfColecao', rows.map(r=>r['Coleção']));
+  let base = baseDataProprioTerceiro;
+  if (restrictMarcas) base = base.filter(r => restrictMarcas.includes(r.Marca));
+  const m=byId('ptfMarca').value, u=byId('ptfUnidade').value, t=byId('ptfTurma').value, tn=byId('ptfTurno').value, s=byId('ptfSelo').value, c=byId('ptfColecao').value;
+  const filtrar = (excluir) => base.filter(r =>
+    (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
+    (excluir==='u' || !u || norm(r.Unidade)===norm(u)) &&
+    (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
+    (excluir==='tn' || !tn || norm(r.Turno)===norm(tn)) &&
+    (excluir==='s' || !s || norm(r.Selo)===norm(s)) &&
+    (excluir==='c' || !c || norm(r['Coleção'])===norm(c))
+  );
+  popularFiltro('ptfMarca', filtrar('m').map(r=>r.Marca));
+  popularFiltro('ptfUnidade', filtrar('u').map(r=>r.Unidade));
+  popularFiltro('ptfTurma', filtrar('t').map(r=>r.Turma), true);
+  popularFiltro('ptfTurno', filtrar('tn').map(r=>r.Turno));
+  popularFiltro('ptfSelo', filtrar('s').map(r=>r.Selo));
+  popularFiltro('ptfColecao', filtrar('c').map(r=>r['Coleção']));
 }
 function aplicarFiltrosPt(rows) {
   const m=byId('ptfMarca').value, u=byId('ptfUnidade').value, t=byId('ptfTurma').value, tn=byId('ptfTurno').value, s=byId('ptfSelo').value, c=byId('ptfColecao').value;
@@ -1320,10 +1329,17 @@ function init() {
 function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='regras') renderRules(); if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') { renderPtAjustes(); renderCustosProprioTerceiro(); } if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); } }
 function setSelectOptions(select, vals, keep=true, includeBlank=false, blankLabel='Todos') { const old=select.value; select.innerHTML=optList(vals, includeBlank, blankLabel); if(keep && vals.includes(old)) select.value=old; }
 function popularFiltrosRegras() {
-  popularFiltro('rfMarca', baseDataRegular.map(r=>r.Marca));
-  popularFiltro('rfTurma', baseDataRegular.map(r=>r.Turma), true);
-  popularFiltro('rfSelo', baseDataRegular.map(r=>r.Selo));
-  popularFiltro('rfColecao', baseDataRegular.map(r=>r['Coleção']));
+  const m=byId('rfMarca').value, t=byId('rfTurma').value, s=byId('rfSelo').value, c=byId('rfColecao').value;
+  const filtrar = (excluir) => baseDataRegular.filter(r =>
+    (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
+    (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
+    (excluir==='s' || !s || norm(r.Selo)===norm(s)) &&
+    (excluir==='c' || !c || norm(r['Coleção'])===norm(c))
+  );
+  popularFiltro('rfMarca', filtrar('m').map(r=>r.Marca));
+  popularFiltro('rfTurma', filtrar('t').map(r=>r.Turma), true);
+  popularFiltro('rfSelo', filtrar('s').map(r=>r.Selo));
+  popularFiltro('rfColecao', filtrar('c').map(r=>r['Coleção']));
 }
 function aplicarFiltrosRegras(rows) {
   const m=byId('rfMarca').value, t=byId('rfTurma').value, s=byId('rfSelo').value, c=byId('rfColecao').value;
@@ -1562,21 +1578,36 @@ function popularFiltro(selectId, valores, ordemTurma) {
   if (vistos.has(norm(atual))) sel.value = vistos.get(norm(atual));
 }
 function popularFiltrosPanorama(rows) {
-  popularFiltro('pfMarca', rows.map(r=>r.Marca));
-  popularFiltro('pfUnidade', rows.map(r=>r.Unidade));
-  popularFiltro('pfTurma', rows.map(r=>r.Turma), true);
-  popularFiltro('pfTurno', rows.map(r=>r.Turno));
+  const m=byId('pfMarca').value, u=byId('pfUnidade').value, t=byId('pfTurma').value, tn=byId('pfTurno').value;
+  const filtrar = (excluir) => rows.filter(r =>
+    (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
+    (excluir==='u' || !u || norm(r.Unidade)===norm(u)) &&
+    (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
+    (excluir==='tn' || !tn || norm(r.Turno)===norm(tn))
+  );
+  popularFiltro('pfMarca', filtrar('m').map(r=>r.Marca));
+  popularFiltro('pfUnidade', filtrar('u').map(r=>r.Unidade));
+  popularFiltro('pfTurma', filtrar('t').map(r=>r.Turma), true);
+  popularFiltro('pfTurno', filtrar('tn').map(r=>r.Turno));
 }
 function aplicarFiltrosPanorama(rows) {
   const m=byId('pfMarca').value, u=byId('pfUnidade').value, t=byId('pfTurma').value, tn=byId('pfTurno').value;
   return rows.filter(r => (!m || norm(r.Marca)===norm(m)) && (!u || norm(r.Unidade)===norm(u)) && (!t || norm(r.Turma)===norm(t)) && (!tn || norm(r.Turno)===norm(tn)));
 }
 function popularFiltrosFinal(rows) {
-  popularFiltro('ffMarca', rows.map(r=>r.Marca));
-  popularFiltro('ffUnidade', rows.map(r=>r.Unidade));
-  popularFiltro('ffTurma', rows.map(r=>r.Turma), true);
-  popularFiltro('ffTurno', rows.map(r=>r.Turno));
-  popularFiltro('ffSelo', rows.map(r=>r.Selo));
+  const m=byId('ffMarca').value, u=byId('ffUnidade').value, t=byId('ffTurma').value, tn=byId('ffTurno').value, s=byId('ffSelo').value;
+  const filtrar = (excluir) => rows.filter(r =>
+    (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
+    (excluir==='u' || !u || norm(r.Unidade)===norm(u)) &&
+    (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
+    (excluir==='tn' || !tn || norm(r.Turno)===norm(tn)) &&
+    (excluir==='s' || !s || norm(r.Selo)===norm(s))
+  );
+  popularFiltro('ffMarca', filtrar('m').map(r=>r.Marca));
+  popularFiltro('ffUnidade', filtrar('u').map(r=>r.Unidade));
+  popularFiltro('ffTurma', filtrar('t').map(r=>r.Turma), true);
+  popularFiltro('ffTurno', filtrar('tn').map(r=>r.Turno));
+  popularFiltro('ffSelo', filtrar('s').map(r=>r.Selo));
 }
 function aplicarFiltrosFinal(rows) {
   const m=byId('ffMarca').value, u=byId('ffUnidade').value, t=byId('ffTurma').value, tn=byId('ffTurno').value, s=byId('ffSelo').value;
