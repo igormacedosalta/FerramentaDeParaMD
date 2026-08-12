@@ -972,28 +972,36 @@ async function apagarTudoERecomecar() {
 }
 
 function construirMapasHeranca(referencia) {
+  // mapa 1: Marca+Unidade+Turma+Turno -> TODAS as linhas (uma por selo/matéria), nao so uma
   const exactMap = new Map();
   referencia.forEach(r => {
     const k = [norm(r.Marca), norm(r.Unidade), norm(r.Turma), norm(r.Turno)].join('|||');
-    exactMap.set(k, r);
+    if (!exactMap.has(k)) exactMap.set(k, []);
+    exactMap.get(k).push(r);
   });
-  const grupoMTT = new Map();
+
+  // mapa 2: Marca+Turma+Turno -> "perfil" completo (conjunto de selos/matérias) mais comum entre as unidades existentes
+  const porUnidadeMTT = new Map(); // marca+turma+turno -> Map(unidade -> linhas daquela unidade)
   referencia.forEach(r => {
     const k = [norm(r.Marca), norm(r.Turma), norm(r.Turno)].join('|||');
-    if (!grupoMTT.has(k)) grupoMTT.set(k, []);
-    grupoMTT.get(k).push(r);
+    if (!porUnidadeMTT.has(k)) porUnidadeMTT.set(k, new Map());
+    const porUnidade = porUnidadeMTT.get(k);
+    const uk = norm(r.Unidade);
+    if (!porUnidade.has(uk)) porUnidade.set(uk, []);
+    porUnidade.get(uk).push(r);
   });
   const modaMTT = new Map();
-  grupoMTT.forEach((rows, k) => {
-    const freq = new Map();
-    rows.forEach(r => {
-      const chave = [r.Selo, r['Coleção'], r.Pct, r.Tipo].join('|||');
-      freq.set(chave, (freq.get(chave) || 0) + 1);
+  porUnidadeMTT.forEach((porUnidade, k) => {
+    // agrupa unidades pelo conjunto completo de selo+coleção+pct+tipo que elas usam (a "assinatura" da turma)
+    const freqAssinatura = new Map();
+    porUnidade.forEach((rows) => {
+      const assinatura = rows.map(r => [r.Selo, r['Coleção'], r.Pct, r.Tipo].join('§')).sort().join(';');
+      if (!freqAssinatura.has(assinatura)) freqAssinatura.set(assinatura, { count: 0, rows });
+      freqAssinatura.get(assinatura).count++;
     });
-    let melhorChave = null, melhorN = -1;
-    freq.forEach((n, chave) => { if (n > melhorN) { melhorChave = chave; melhorN = n; } });
-    const partes = melhorChave.split('|||');
-    modaMTT.set(k, { Selo: partes[0], 'Coleção': partes[1], Pct: parseFloat(partes[2]), Tipo: partes[3] });
+    let melhor = null, melhorN = -1;
+    freqAssinatura.forEach(v => { if (v.count > melhorN) { melhor = v; melhorN = v.count; } });
+    modaMTT.set(k, melhor.rows); // array com TODAS as matérias do perfil mais comum
   });
   return { exactMap, modaMTT };
 }
@@ -1052,17 +1060,20 @@ async function aplicarHerancaEAvancarAno(file, anoBase, anoAlvo, incremental) {
   const linhasCalculadas = [];
   const pendentes = [];
   let contExata = 0, contModa = 0;
-  turmasNovas.forEach((t, i) => {
+  let seq = 0;
+  turmasNovas.forEach((t) => {
     const kExata = [norm(t.Marca), norm(t.Unidade), norm(t.Turma), norm(t.Turno)].join('|||');
     const kMTT = [norm(t.Marca), norm(t.Turma), norm(t.Turno)].join('|||');
-    let ref = exactMap.get(kExata);
-    if (ref) contExata++;
-    if (!ref) { ref = modaMTT.get(kMTT); if (ref) contModa++; }
-    if (ref) {
-      linhasCalculadas.push({
-        id: 'B' + Date.now() + '_' + i,
-        Marca: t.Marca, Unidade: t.Unidade, Turma: t.Turma, Turno: t.Turno,
-        Selo: ref.Selo, 'Coleção': ref['Coleção'], Pct: ref.Pct, Tipo: ref.Tipo,
+    let refRows = exactMap.get(kExata);
+    if (refRows) contExata++;
+    if (!refRows) { refRows = modaMTT.get(kMTT); if (refRows) contModa++; }
+    if (refRows && refRows.length) {
+      refRows.forEach(ref => {
+        linhasCalculadas.push({
+          id: 'B' + Date.now() + '_' + (seq++),
+          Marca: t.Marca, Unidade: t.Unidade, Turma: t.Turma, Turno: t.Turno,
+          Selo: ref.Selo, 'Coleção': ref['Coleção'], Pct: ref.Pct, Tipo: ref.Tipo,
+        });
       });
     } else {
       pendentes.push({ Marca: t.Marca, Unidade: t.Unidade, Turma: t.Turma, Turno: t.Turno });
