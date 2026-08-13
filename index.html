@@ -1441,7 +1441,7 @@ function saveRuleEdit(kEnc, deleted) {
     ? { deleted:false, selo2027:byId('rselo_'+enc).value, colecao2027:'Não utiliza', pct2027:0, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() }
     : { deleted:false, selo2027:byId('rselo_'+enc).value, colecao2027:byId('rcol_'+enc).value.trim() || colecao, pct2027:normalizePct(byId('rpct_'+enc).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
   db.collection('depara_edicoes').doc(marca).set({ ruleEdits: { [k]: valor } }, {merge:true})
-    .then(()=>showToast((deleted?'Marcado como não utiliza':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'warn':'ok'))
+    .then(()=>{ showToast((deleted?'Marcado como não utiliza':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'warn':'ok'); registrarHistorico('regra', deleted ? `Regra marcada como não utiliza: ${marca} / ${parts[1]} / ${colecao} (${parts[2]})` : `Regra alterada: ${marca} / ${parts[1]} / ${colecao} (${parts[2]}) → ${valor.selo2027} / ${valor.colecao2027} / ${pctFmt(valor.pct2027)}`); })
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
 }
 function clearRuleEdit(kEnc) {
