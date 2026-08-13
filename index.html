@@ -1327,58 +1327,83 @@ function init() {
 let paginaAtual = 'regras';
 function switchPage(id) { paginaAtual = id; document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='regras') renderRules(); if(id==='excecoes') renderExceptions(); if(id==='novas') { renderNewClasses(); renderTurmasPendentes(); } if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') renderCustosProprioTerceiro(); if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); renderSelosPTCheckboxes(); renderHistoricoAlteracoes(); } }
 function setSelectOptions(select, vals, keep=true, includeBlank=false, blankLabel='Todos') { const old=select.value; select.innerHTML=optList(vals, includeBlank, blankLabel); if(keep && vals.includes(old)) select.value=old; }
-function popularFiltrosRegras() {
+function getRegrasEfetivas() {
   let base = baseData;
   if (restrictMarcas) base = base.filter(r => restrictMarcas.includes(r.Marca));
+  const groups={};
+  base.forEach(r=>{ const k=currentRuleKey(r); if(!groups[k]) groups[k]={Marca:r.Marca,Turma:r.Turma,SeloOriginal:r.Selo,ColecaoOriginal:r['Coleção'],PctOriginal:r.Pct,qtd:0,unidades:new Set()}; groups[k].qtd++; groups[k].unidades.add(r.Unidade); });
+  return Object.entries(groups).map(([k,g])=>{
+    const edit = state.ruleEdits[k];
+    return {
+      key: k, Marca: g.Marca, Turma: g.Turma, qtd: g.qtd,
+      SeloOriginal: g.SeloOriginal, ColecaoOriginal: g.ColecaoOriginal, PctOriginal: g.PctOriginal,
+      Selo: (edit && edit.selo2027) || g.SeloOriginal,
+      Colecao: (edit && edit.colecao2027) || g.ColecaoOriginal,
+      Pct: edit ? edit.pct2027 : g.PctOriginal,
+    };
+  });
+}
+function popularFiltrosRegras() {
+  const regras = getRegrasEfetivas();
   const m=byId('rfMarca').value, t=byId('rfTurma').value, s=byId('rfSelo').value, c=byId('rfColecao').value;
-  const filtrar = (excluir) => base.filter(r =>
+  const filtrar = (excluir) => regras.filter(r =>
     (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
     (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
     (excluir==='s' || !s || norm(r.Selo)===norm(s)) &&
-    (excluir==='c' || !c || norm(r['Coleção'])===norm(c))
+    (excluir==='c' || !c || norm(r.Colecao)===norm(c))
   );
   popularFiltro('rfMarca', filtrar('m').map(r=>r.Marca));
   popularFiltro('rfTurma', filtrar('t').map(r=>r.Turma), true);
   popularFiltro('rfSelo', filtrar('s').map(r=>r.Selo));
-  popularFiltro('rfColecao', filtrar('c').map(r=>r['Coleção']));
+  popularFiltro('rfColecao', filtrar('c').map(r=>r.Colecao));
 }
-function aplicarFiltrosRegras(rows) {
+function aplicarFiltrosRegras(regras) {
   const m=byId('rfMarca').value, t=byId('rfTurma').value, s=byId('rfSelo').value, c=byId('rfColecao').value;
-  return rows.filter(r => (!m||norm(r.Marca)===norm(m)) && (!t||norm(r.Turma)===norm(t)) && (!s||norm(r.Selo)===norm(s)) && (!c||norm(r['Coleção'])===norm(c)));
+  return regras.filter(r => (!m||norm(r.Marca)===norm(m)) && (!t||norm(r.Turma)===norm(t)) && (!s||norm(r.Selo)===norm(s)) && (!c||norm(r.Colecao)===norm(c)));
 }
-function popularFiltrosExcecoes() {
+function getExcecoesEfetivas() {
   let base = baseData;
   if (restrictMarcas) base = base.filter(r => restrictMarcas.includes(r.Marca));
+  return base.map(r => {
+    const edit = state.exceptionEdits[r.id];
+    return {
+      ...r,
+      SeloEfetivo: (edit && edit.selo2027) || r.Selo,
+      ColecaoEfetiva: edit ? (edit.colecao2027 || r['Coleção']) : r['Coleção'],
+      PctEfetivo: edit ? edit.pct2027 : r.Pct,
+    };
+  });
+}
+function popularFiltrosExcecoes() {
+  const base = getExcecoesEfetivas();
   const m=byId('efMarca').value, u=byId('efUnidade').value, t=byId('efTurma').value, tn=byId('efTurno').value, s=byId('efSelo').value;
   const filtrar = (excluir) => base.filter(r =>
     (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
     (excluir==='u' || !u || norm(r.Unidade)===norm(u)) &&
     (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
     (excluir==='tn' || !tn || norm(r.Turno)===norm(tn)) &&
-    (excluir==='s' || !s || norm(r.Selo)===norm(s))
+    (excluir==='s' || !s || norm(r.SeloEfetivo)===norm(s))
   );
   popularFiltro('efMarca', filtrar('m').map(r=>r.Marca));
   popularFiltro('efUnidade', filtrar('u').map(r=>r.Unidade));
   popularFiltro('efTurma', filtrar('t').map(r=>r.Turma), true);
   popularFiltro('efTurno', filtrar('tn').map(r=>r.Turno));
-  popularFiltro('efSelo', filtrar('s').map(r=>r.Selo));
+  popularFiltro('efSelo', filtrar('s').map(r=>r.SeloEfetivo));
 }
 function aplicarFiltrosExcecoes(rows) {
   const m=byId('efMarca').value, u=byId('efUnidade').value, t=byId('efTurma').value, tn=byId('efTurno').value, s=byId('efSelo').value;
-  return rows.filter(r => (!m||norm(r.Marca)===norm(m)) && (!u||norm(r.Unidade)===norm(u)) && (!t||norm(r.Turma)===norm(t)) && (!tn||norm(r.Turno)===norm(tn)) && (!s||norm(r.Selo)===norm(s)));
+  return rows.filter(r => (!m||norm(r.Marca)===norm(m)) && (!u||norm(r.Unidade)===norm(u)) && (!t||norm(r.Turma)===norm(t)) && (!tn||norm(r.Turno)===norm(tn)) && (!s||norm(r.SeloEfetivo || r.Selo)===norm(s)));
 }
 function renderExceptions() {
-  let base = baseData;
-  if (restrictMarcas) base = base.filter(r => restrictMarcas.includes(r.Marca));
   popularFiltrosExcecoes();
-  const rows = aplicarFiltrosExcecoes(base);
+  const rows = aplicarFiltrosExcecoes(getExcecoesEfetivas());
   byId('exceptionHint').textContent = `${rows.length.toLocaleString('pt-BR')} linha(s) encontrada(s)${rows.length>500?' — mostrando as primeiras 500':''}.`;
   const visiveis = rows.slice(0,500);
   let html='<thead><tr><th>Marca</th><th>Unidade</th><th>Turma</th><th>Turno</th><th>Selo</th><th>Material atual</th><th>% atual</th><th>Selo novo</th><th>Material novo</th><th>% novo</th><th>Ação</th></tr></thead><tbody>';
-  visiveis.forEach(r=>{ const edit=state.exceptionEdits[r.id] || {deleted:false, selo2027:r.Selo, colecao2027:r['Coleção'], pct2027:r.Pct}; html += `<tr><td>${escapeHtml(r.Marca)}</td><td>${escapeHtml(r.Unidade)}</td><td>${escapeHtml(r.Turma)}</td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r.Selo)}</td><td>${escapeHtml(edit.colecao2027 || r['Coleção'])}</td><td>${pctFmt(edit.pct2027 ?? r.Pct)}</td><td><select id="eselo_${r.id}">${optList(allSelos)}</select></td><td><input id="ecol_${r.id}" list="colecoesList" value="${escapeAttr(edit.colecao2027)}"></td><td><input id="epct_${r.id}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(edit.pct2027))}"></td><td class="row-actions"><button class="secondary" onclick="saveExceptionEdit('${r.id}', false)">Salvar</button><button class="danger" onclick="saveExceptionEdit('${r.id}', true)">Excluir</button><button class="secondary" onclick="clearExceptionEdit('${r.id}')">Reverter</button></td></tr>`; });
-  aplicarFiltrosExcecoes(state.exceptionAdditions.map(a=>({Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:a.baseSelo, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.exceptionAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Unidade)}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.Turno||'')}</td><td>${escapeHtml(a.baseSelo)}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeExceptionAddition(${i})">Remover</button></td></tr>`; });
+  visiveis.forEach(r=>{ html += `<tr><td>${escapeHtml(r.Marca)}</td><td>${escapeHtml(r.Unidade)}</td><td>${escapeHtml(r.Turma)}</td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r.SeloEfetivo)}</td><td>${escapeHtml(r.ColecaoEfetiva)}</td><td>${pctFmt(r.PctEfetivo)}</td><td><select id="eselo_${r.id}">${optList(allSelos)}</select></td><td><input id="ecol_${r.id}" list="colecoesList" value="${escapeAttr(r.ColecaoEfetiva)}"></td><td><input id="epct_${r.id}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(r.PctEfetivo))}"></td><td class="row-actions"><button class="secondary" onclick="saveExceptionEdit('${r.id}', false)">Salvar</button><button class="danger" onclick="saveExceptionEdit('${r.id}', true)">Excluir</button><button class="secondary" onclick="clearExceptionEdit('${r.id}')">Reverter</button></td></tr>`; });
+  aplicarFiltrosExcecoes(state.exceptionAdditions.map(a=>({Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:a.baseSelo, SeloEfetivo:a.baseSelo, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.exceptionAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Unidade)}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.Turno||'')}</td><td>${escapeHtml(a.baseSelo)}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeExceptionAddition(${i})">Remover</button></td></tr>`; });
   html+='</tbody>'; byId('exceptionsTable').innerHTML=html;
-  visiveis.forEach(r=>{ const el=byId('eselo_'+r.id); if(el) el.value=(state.exceptionEdits[r.id]||{selo2027:r.Selo}).selo2027 || r.Selo; });
+  visiveis.forEach(r=>{ const el=byId('eselo_'+r.id); if(el) el.value=r.SeloEfetivo; });
 }
 function saveExceptionEdit(id, deleted) {
   const r=baseData.find(x=>x.id===id); const marca=r.Marca;
@@ -1421,19 +1446,17 @@ function removeExceptionAddition(index) {
 }
 function renderRules() {
   popularFiltrosRegras();
-  const rows = aplicarFiltrosRegras(baseData);
-  const groups={};
-  rows.forEach(r=>{ const k=currentRuleKey(r); if(!groups[k]) groups[k]={Marca:r.Marca,Turma:r.Turma,Selo:r.Selo,Colecao:r['Coleção'], Pct:r.Pct, qtd:0, unidades:new Set()}; groups[k].qtd++; groups[k].unidades.add(r.Unidade); });
+  const regras = aplicarFiltrosRegras(getRegrasEfetivas());
   const ordemTurmaFn = (a,b) => { const ia=TURMA_ORDER_MAP.has(norm(a))?TURMA_ORDER_MAP.get(norm(a)):Infinity; const ib=TURMA_ORDER_MAP.has(norm(b))?TURMA_ORDER_MAP.get(norm(b)):Infinity; return ia!==ib ? ia-ib : String(a).localeCompare(String(b),'pt-BR'); };
-  const data=Object.values(groups).sort((a,b)=> a.Marca.localeCompare(b.Marca,'pt-BR') || ordemTurmaFn(a.Turma,b.Turma) || a.Selo.localeCompare(b.Selo,'pt-BR') || a.Colecao.localeCompare(b.Colecao,'pt-BR'));
+  const data=regras.sort((a,b)=> a.Marca.localeCompare(b.Marca,'pt-BR') || ordemTurmaFn(a.Turma,b.Turma) || a.Selo.localeCompare(b.Selo,'pt-BR') || a.Colecao.localeCompare(b.Colecao,'pt-BR'));
   byId('ruleHint').textContent = `${data.length.toLocaleString('pt-BR')} regra(s) encontrada(s)${data.length>500?' — mostrando as primeiras 500':''}.`;
   const visiveis = data.slice(0,500);
   let html='<thead><tr><th>Marca</th><th>Turma</th><th>Selo</th><th>Material atual</th><th>% atual</th><th>Selo novo</th><th>Material novo</th><th>% novo</th><th>Ação</th></tr></thead><tbody>';
-  visiveis.forEach(g=>{ const k=ruleKey(g.Marca,g.Turma,g.Selo,g.Colecao); const edit=state.ruleEdits[k] || {deleted:false, selo2027:g.Selo, colecao2027:g.Colecao, pct2027:g.Pct}; const enc=safeEnc(k);
-    html += `<tr><td>${escapeHtml(g.Marca)}</td><td>${escapeHtml(g.Turma)}</td><td>${escapeHtml(g.Selo)}</td><td>${escapeHtml(edit.colecao2027 || g.Colecao)}</td><td>${pctFmt(edit.pct2027 ?? g.Pct)}</td><td><select id="rselo_${enc}" onchange="handleRuleSeloChange('${enc}')">${optList(allSelos)}</select></td><td><select id="rcol_${enc}"></select></td><td><input id="rpct_${enc}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(edit.pct2027))}"></td><td class="row-actions"><button class="secondary" onclick="saveRuleEdit('${encodeURIComponent(k)}', false)">Salvar</button><button class="danger" onclick="saveRuleEdit('${encodeURIComponent(k)}', true)">Excluir</button><button class="secondary" onclick="clearRuleEdit('${encodeURIComponent(k)}')">Reverter</button></td></tr>`; });
-  aplicarFiltrosRegras(state.ruleAdditions.map(a=>({Marca:a.Marca, Turma:a.Turma, Selo:a.baseSelo, 'Coleção':a.colecao2027, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.ruleAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.baseSelo)}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeRuleAddition(${i})">Remover</button></td></tr>`; });
+  visiveis.forEach(g=>{ const k=g.key; const enc=safeEnc(k);
+    html += `<tr><td>${escapeHtml(g.Marca)}</td><td>${escapeHtml(g.Turma)}</td><td>${escapeHtml(g.Selo)}</td><td>${escapeHtml(g.Colecao)}</td><td>${pctFmt(g.Pct)}</td><td><select id="rselo_${enc}" onchange="handleRuleSeloChange('${enc}')">${optList(allSelos)}</select></td><td><select id="rcol_${enc}"></select></td><td><input id="rpct_${enc}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(g.Pct))}"></td><td class="row-actions"><button class="secondary" onclick="saveRuleEdit('${encodeURIComponent(k)}', false)">Salvar</button><button class="danger" onclick="saveRuleEdit('${encodeURIComponent(k)}', true)">Excluir</button><button class="secondary" onclick="clearRuleEdit('${encodeURIComponent(k)}')">Reverter</button></td></tr>`; });
+  aplicarFiltrosRegras(state.ruleAdditions.map(a=>({Marca:a.Marca, Turma:a.Turma, Selo:a.selo2027, Colecao:a.colecao2027, Pct:a.pct2027, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.ruleAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.baseSelo)}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeRuleAddition(${i})">Remover</button></td></tr>`; });
   html+='</tbody>'; byId('rulesTable').innerHTML=html;
-  visiveis.forEach(g=>{ const k=ruleKey(g.Marca,g.Turma,g.Selo,g.Colecao); const enc=safeEnc(k); const edit=state.ruleEdits[k] || {selo2027:g.Selo, colecao2027:g.Colecao}; const seloEl=byId('rselo_'+enc); if(seloEl) { seloEl.value=edit.selo2027 || g.Selo; setCollectionOptions('rcol_'+enc, seloEl.value, edit.colecao2027 || g.Colecao); } });
+  visiveis.forEach(g=>{ const enc=safeEnc(g.key); const seloEl=byId('rselo_'+enc); if(seloEl) { seloEl.value=g.Selo; setCollectionOptions('rcol_'+enc, g.Selo, g.Colecao); } });
 }
 function saveRuleEdit(kEnc, deleted) {
   const k=decodeURIComponent(kEnc); const enc=safeEnc(k); const parts=k.split('|||'); const marca=parts[0]; const colecao=parts[3];
