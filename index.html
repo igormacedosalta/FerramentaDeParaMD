@@ -151,13 +151,15 @@
     <div class="card"><div class="row-actions" style="justify-content:space-between;align-items:center;margin-bottom:10px"><div><strong>Coleções cadastradas na escola em 2026</strong><br><span class="muted" id="exceptionHint"></span></div><button class="secondary" onclick="addExceptionRow()">Adicionar coleção nova nesta escola</button></div><div class="table-wrap"><table id="exceptionsTable"></table></div></div>
   </section>
   <section id="novas" class="page">
-    <div class="card" id="pendentesCard" style="display:none;">
-      <h2 style="margin-top:0;">Turmas pendentes (sem regra herdada)</h2>
-      <div class="help">Essas turmas vieram do último avanço de ano, mas não havia nenhuma referência (nem exata, nem em outra unidade da mesma Marca+Turma+Turno) para herdar o material automaticamente. Preencha o Selo, a Coleção e o % de utilização de cada uma.</div>
-      <div class="table-wrap"><table id="pendentesTable"></table></div>
+    <div class="card">
+      <h2 style="margin-top:0;">3. Turmas sem correspondência</h2>
+      <div class="help">Esta página mostra as turmas que vieram do upload da lista de turmas do ano seguinte (aba 7, passo 3), mas não tiveram nenhuma referência pra herdar o material automaticamente — nem uma correspondência exata, nem um padrão entre outras unidades da mesma Marca+Turma+Turno. Preencha o Selo, a Coleção e o % de utilização de cada uma abaixo.</div>
     </div>
-    <div class="card"><h2>3. Criação de novas turmas</h2><div class="help">Cadastre turmas que não existiam na lista de 2026 e informe todos os materiais/selo que serão usados em 2027.</div><div class="grid"><div><label>Marca</label><select id="nMarca"></select></div><div><label>Escola / Unidade opcional</label><select id="nUnidade"></select></div><div><label>Nova turma</label><input id="nTurma" placeholder="Ex.: 6º Ano Integral" /></div><div><label>Turno</label><select id="nTurno"></select></div><div><label>Selo</label><select id="nSelo"></select></div><div class="wide"><label>Coleção / material</label><input id="nColecao" list="colecoesList" placeholder="Digite ou selecione uma coleção" /></div><div><label>% utilização</label><input id="nPct" type="number" step="0.01" min="0" max="1" value="1" /></div></div><div style="margin-top:12px"><button class="primary" onclick="saveNewClass()">Adicionar material da nova turma</button></div></div>
-    <div class="card"><div class="row-actions" style="justify-content:space-between;align-items:center;margin-bottom:10px"><strong>Materiais cadastrados para novas turmas</strong><button class="danger" onclick="clearNewClasses()">Limpar novas turmas</button></div><div class="table-wrap"><table id="newTable"></table></div></div>
+    <div class="card" id="pendentesCard" style="display:none;">
+      <strong>Turmas pendentes de preenchimento</strong>
+      <div class="table-wrap" style="margin-top:10px;"><table id="pendentesTable"></table></div>
+    </div>
+    <div class="card"><div class="row-actions" style="justify-content:space-between;align-items:center;margin-bottom:10px"><strong>Turmas já preenchidas</strong><button class="danger" onclick="clearNewClasses()">Limpar turmas preenchidas</button></div><div class="table-wrap"><table id="newTable"></table></div></div>
   </section>
   <section id="panorama" class="page">
     <div class="card"><h2>4. Panorama de mudanças</h2><div class="row-actions" style="margin-top:12px"><button class="primary" onclick="renderPanorama()">Atualizar panorama</button><button class="secondary" onclick="downloadCSV('panorama')">Exportar panorama CSV</button></div></div>
@@ -174,23 +176,10 @@
   <section id="proprioterceiro" class="page">
     <div class="card">
       <h2>5. Materiais próprios/terceiros</h2>
-      <div class="help">Esses materiais não passam pelo fluxo de Regras — são de fornecimento próprio da escola ou de terceiros. Ajuste aqui quais materiais cada turma usa (adicione, altere ou exclua, igual na aba Exceções). Depois de finalizar os ajustes, preencha o custo unitário e a quantidade de entregas de cada coleção mais abaixo.</div>
-      <div class="grid">
-        <div><label>Marca</label><select id="ptfMarca" onchange="renderPtAjustes()"></select></div>
-        <div><label>Unidade</label><select id="ptfUnidade" onchange="renderPtAjustes()"></select></div>
-        <div><label>Turma</label><select id="ptfTurma" onchange="renderPtAjustes()"></select></div>
-        <div><label>Turno</label><select id="ptfTurno" onchange="renderPtAjustes()"></select></div>
-        <div><label>Selo</label><select id="ptfSelo" onchange="renderPtAjustes()"></select></div>
-        <div><label>Coleção</label><select id="ptfColecao" onchange="renderPtAjustes()"></select></div>
-      </div>
-      <p class="muted small" id="ptAjustesHint" style="margin-top:10px;"></p>
-      <div class="row-actions" style="margin-top:10px;">
-        <button class="secondary" onclick="addPtRow()">Adicionar material a uma turma</button>
-      </div>
+      <div class="help">Aqui aparecem os materiais cujo selo foi configurado como "próprio/terceiro" pelo admin (aba 7). Para trocar qual material uma turma usa, edite normalmente em "1. Regras" ou "2. Exceções" — se o novo selo escolhido estiver na lista de próprio/terceiro, a combinação aparece automaticamente aqui. Preencha o custo unitário e a quantidade de entregas de cada coleção.</div>
+      <p class="muted small" id="ptHint" style="margin-top:10px;"></p>
     </div>
-    <div class="card"><div class="table-wrap"><table id="ptAjustesTable"></table></div></div>
     <div class="card">
-      <h3 style="margin-top:0;">Custos e entregas por coleção</h3>
       <div class="table-wrap"><table id="ptTable"></table></div>
     </div>
   </section>
@@ -244,6 +233,13 @@
         <div class="wide"><label>Arquivo (Selo, Coleção)</label><input type="file" id="catalogoScArquivo" accept=".xlsx,.xls,.csv"></div>
       </div>
       <div class="row-actions" style="margin-top:14px;"><button class="primary" onclick="enviarCatalogoSelosColecoes()">Enviar Selos/Coleções novos</button></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Selos de materiais próprios/terceiros</h3>
+      <div class="help">Marque quais selos representam materiais próprios/terceiros. Sempre que um selo marcado aqui for usado numa turma — seja na base original, seja através de uma alteração feita em "1. Regras" ou "2. Exceções" — essa combinação passa a aparecer na aba "5. Materiais próprios/terceiros" para os diretores informarem custo e quantidade de entregas.</div>
+      <div id="selosPTCheckboxes" style="display:flex;flex-wrap:wrap;gap:10px;padding:10px;border:1px solid var(--line);border-radius:9px;max-height:260px;overflow:auto;"></div>
+      <div class="row-actions" style="margin-top:14px;"><button class="primary" onclick="salvarSelosProprioTerceiroDoForm()">Salvar seleção</button></div>
     </div>
 
     <div class="card">
@@ -331,15 +327,13 @@
 <script>
 let baseData = [];
 const SEED_BASE_DATA = [];
-let state = {ruleEdits:{}, exceptionEdits:{}, ruleAdditions:[], exceptionAdditions:[], newClasses:[], ptEdits:{}, ptAdditions:[], turmasPendentes:[]}; // populado via Firestore (ver bloco de LOGIN)
+let state = {ruleEdits:{}, exceptionEdits:{}, ruleAdditions:[], exceptionAdditions:[], newClasses:[], turmasPendentes:[]}; // populado via Firestore (ver bloco de LOGIN)
 const uniq = arr => [...new Set(arr.filter(v => v !== undefined && v !== null && String(v).trim() !== '').map(v => String(v)))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
 let allBrands = [];
 let allSelos = [];
 let allColecoes = [];
 let allTurnos = [];
 let colecoesPorSelo = {};
-let baseDataRegular = [];
-let baseDataProprioTerceiro = [];
 function recomputarDerivadosDeBaseData() {
   allBrands = uniq(baseData.map(r=>r.Marca));
   allBrands = uniq([...allBrands, ...marcasExtras.adicionadas]).filter(m => !marcasExtras.removidas.includes(m));
@@ -352,8 +346,6 @@ function recomputarDerivadosDeBaseData() {
   const fonteColecoes = catalogoSelosColecoes.length ? catalogoSelosColecoes : baseData;
   fonteColecoes.forEach(r=>{ (colecoesPorSelo[r.Selo] ||= new Set()).add(r['Coleção']); });
   Object.keys(colecoesPorSelo).forEach(k=>{ colecoesPorSelo[k] = [...colecoesPorSelo[k]].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR')); });
-  baseDataRegular = baseData.filter(r=>r.Tipo!=='ProprioTerceiro');
-  baseDataProprioTerceiro = baseData.filter(r=>r.Tipo==='ProprioTerceiro');
 }
 function escapeHtml(s) { return String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function escapeAttr(s) { return escapeHtml(s); }
@@ -519,20 +511,18 @@ async function mostrarApp() {
   await carregarBaseAtual();
   init();
   if (!isAdmin) aplicarRestricaoMarcas(currentUser.marcas);
-  if (isAdmin) { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); }
+  if (isAdmin) { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); renderSelosPTCheckboxes(); }
   ligarListenersEdicoes();
   ligarListenerProprioTerceiro();
 }
 
 function aplicarRestricaoMarcas(marcas) {
   restrictMarcas = marcas;
-  ['rMarca', 'eMarca', 'nMarca'].forEach(id => {
-    const sel = byId(id);
-    sel.innerHTML = optList(marcas, marcas.length > 1, 'Selecione a marca...');
-    if (marcas.length === 1) { sel.value = marcas[0]; sel.disabled = true; }
-  });
-  updateRuleFilters(); updateExceptionUnits(); updateNewUnits();
-  renderStats(); renderPanorama(); renderFinal();
+  const sel = byId('eMarca');
+  sel.innerHTML = optList(marcas, marcas.length > 1, 'Selecione a marca...');
+  if (marcas.length === 1) { sel.value = marcas[0]; sel.disabled = true; }
+  updateExceptionUnits();
+  renderStats(); renderRules(); renderPanorama(); renderFinal();
 }
 
 function desligarListenersEdicoes() {
@@ -542,8 +532,8 @@ function desligarListenersEdicoes() {
 
 function ligarListenersEdicoes() {
   desligarListenersEdicoes();
-  const rebuild = () => { renderRules(); renderExceptions(); renderNewClasses(); renderTurmasPendentes(); renderStats(); renderPanorama(); renderPtAjustes(); renderFinal(); };
-  const vazio = () => ({ ruleEdits:{}, exceptionEdits:{}, ruleAdditions:[], exceptionAdditions:[], newClasses:[], ptEdits:{}, ptAdditions:[], turmasPendentes:[] });
+  const rebuild = () => { renderRules(); renderExceptions(); renderNewClasses(); renderTurmasPendentes(); renderStats(); renderPanorama(); renderCustosProprioTerceiro(); renderFinal(); };
+  const vazio = () => ({ ruleEdits:{}, exceptionEdits:{}, ruleAdditions:[], exceptionAdditions:[], newClasses:[], turmasPendentes:[] });
 
   if (currentUser.papel === 'admin') {
     const unsub = db.collection('depara_edicoes').onSnapshot(snapshot => {
@@ -555,8 +545,6 @@ function ligarListenersEdicoes() {
         novo.ruleAdditions = novo.ruleAdditions.concat(d.ruleAdditions || []);
         novo.exceptionAdditions = novo.exceptionAdditions.concat(d.exceptionAdditions || []);
         novo.newClasses = novo.newClasses.concat(d.newClasses || []);
-        Object.assign(novo.ptEdits, d.ptEdits || {});
-        novo.ptAdditions = novo.ptAdditions.concat(d.ptAdditions || []);
         novo.turmasPendentes = (novo.turmasPendentes || []).concat(d.turmasPendentes || []);
       });
       state = novo; rebuild();
@@ -574,8 +562,6 @@ function ligarListenersEdicoes() {
           novo.ruleAdditions = novo.ruleAdditions.concat(d.ruleAdditions || []);
           novo.exceptionAdditions = novo.exceptionAdditions.concat(d.exceptionAdditions || []);
           novo.newClasses = novo.newClasses.concat(d.newClasses || []);
-          Object.assign(novo.ptEdits, d.ptEdits || {});
-          novo.ptAdditions = novo.ptAdditions.concat(d.ptAdditions || []);
         novo.turmasPendentes = (novo.turmasPendentes || []).concat(d.turmasPendentes || []);
         });
         state = novo; rebuild();
@@ -763,6 +749,7 @@ function pctFlexivel(v) {
 
 async function carregarBaseAtual() {
   await carregarMarcasExtras();
+  await carregarSelosProprioTerceiro();
   await carregarCatalogos();
   try {
     const configDoc = await db.collection('depara_config').doc('atual').get();
@@ -798,6 +785,41 @@ async function carregarMarcasExtras() {
   }
 }
 
+let selosProprioTerceiro = [];
+async function carregarSelosProprioTerceiro() {
+  try {
+    const doc = await db.collection('depara_config').doc('selos_proprio_terceiro').get();
+    selosProprioTerceiro = doc.exists ? (doc.data().selos || []) : [];
+  } catch (e) {
+    console.error('Erro ao carregar selos próprio/terceiro', e);
+    selosProprioTerceiro = [];
+  }
+}
+async function salvarSelosProprioTerceiroDoForm() {
+  const checked = Array.from(document.querySelectorAll('#selosPTCheckboxes input:checked')).map(el => el.value);
+  try {
+    await db.collection('depara_config').doc('selos_proprio_terceiro').set({ selos: checked });
+    selosProprioTerceiro = checked;
+    showToast('Selos de próprio/terceiro atualizados', 'ok');
+    renderCustosProprioTerceiro();
+  } catch (e) {
+    showToast('Erro ao salvar: ' + e.message, 'danger');
+  }
+}
+function isSeloProprioTerceiro(selo) {
+  return selosProprioTerceiro.some(s => norm(s) === norm(selo));
+}
+function renderSelosPTCheckboxes() {
+  const el = byId('selosPTCheckboxes'); if (!el) return;
+  const sel = new Set(selosProprioTerceiro.map(norm));
+  el.innerHTML = allSelos.map(s => `
+    <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0;width:auto;">
+      <input type="checkbox" value="${escapeAttr(s)}" ${sel.has(norm(s)) ? 'checked' : ''} style="width:auto;">
+      ${escapeHtml(s)}
+    </label>
+  `).join('');
+}
+
 let catalogoSelosColecoes = [];  // [{Selo, Coleção}] - cadastro independente da adoção atual
 
 async function carregarCatalogoChunked(metaCollection, chunksCollection) {
@@ -818,7 +840,7 @@ async function carregarCatalogos() {
 }
 
 function unidadesDoCatalogo(marca) {
-  return uniq(baseDataRegular.filter(r=>norm(r.Marca)===norm(marca)).map(r=>r.Unidade));
+  return uniq(baseData.filter(r=>norm(r.Marca)===norm(marca)).map(r=>r.Unidade));
 }
 
 function renderBaseAtualInfo() {
@@ -1157,21 +1179,10 @@ async function baixarHistoricoCiclo(ciclo) {
 let ptDados = {}; // marca -> { 'selo|||colecao': {custo, qtdEntregas, autor, quando} }
 let unsubscribePT = [];
 
-function getProprioTerceiroFinalRows() {
-  const final=[];
-  baseDataProprioTerceiro.forEach(r=>{
-    let out={...r, Selo2027:r.Selo, Colecao2027:r['Coleção'], Pct2027:r.Pct};
-    const pe=state.ptEdits[r.id];
-    if(pe){ if(pe.deleted) return; out.Selo2027=pe.selo2027; out.Colecao2027=pe.colecao2027; out.Pct2027=pe.pct2027; }
-    final.push(out);
-  });
-  state.ptAdditions.forEach(a=>final.push({id:'ADD_PT', Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:a.baseSelo||'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027}));
-  return final;
-}
-
 function getProprioTerceiroCombos() {
-  let rows = getProprioTerceiroFinalRows();
+  let rows = getFinalRows();
   if (restrictMarcas) rows = rows.filter(r => restrictMarcas.includes(r.Marca));
+  rows = rows.filter(r => isSeloProprioTerceiro(r.Selo2027));
   const combos = {};
   rows.forEach(r => {
     const k = [r.Marca, r.Selo2027, r.Colecao2027].join('|||');
@@ -1194,97 +1205,10 @@ function ligarListenerProprioTerceiro() {
   });
 }
 
-function popularFiltrosPt() {
-  let base = baseDataProprioTerceiro;
-  if (restrictMarcas) base = base.filter(r => restrictMarcas.includes(r.Marca));
-  const m=byId('ptfMarca').value, u=byId('ptfUnidade').value, t=byId('ptfTurma').value, tn=byId('ptfTurno').value, s=byId('ptfSelo').value, c=byId('ptfColecao').value;
-  const filtrar = (excluir) => base.filter(r =>
-    (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
-    (excluir==='u' || !u || norm(r.Unidade)===norm(u)) &&
-    (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
-    (excluir==='tn' || !tn || norm(r.Turno)===norm(tn)) &&
-    (excluir==='s' || !s || norm(r.Selo)===norm(s)) &&
-    (excluir==='c' || !c || norm(r['Coleção'])===norm(c))
-  );
-  popularFiltro('ptfMarca', filtrar('m').map(r=>r.Marca));
-  popularFiltro('ptfUnidade', filtrar('u').map(r=>r.Unidade));
-  popularFiltro('ptfTurma', filtrar('t').map(r=>r.Turma), true);
-  popularFiltro('ptfTurno', filtrar('tn').map(r=>r.Turno));
-  popularFiltro('ptfSelo', filtrar('s').map(r=>r.Selo));
-  popularFiltro('ptfColecao', filtrar('c').map(r=>r['Coleção']));
-}
-function aplicarFiltrosPt(rows) {
-  const m=byId('ptfMarca').value, u=byId('ptfUnidade').value, t=byId('ptfTurma').value, tn=byId('ptfTurno').value, s=byId('ptfSelo').value, c=byId('ptfColecao').value;
-  return rows.filter(r => (!m||norm(r.Marca)===norm(m)) && (!u||norm(r.Unidade)===norm(u)) && (!t||norm(r.Turma)===norm(t)) && (!tn||norm(r.Turno)===norm(tn)) && (!s||norm(r.Selo)===norm(s)) && (!c||norm(r['Coleção'])===norm(c)));
-}
-
-function renderPtAjustes() {
-  const tbl = byId('ptAjustesTable'); if (!tbl) return;
-  let rows = baseDataProprioTerceiro;
-  if (restrictMarcas) rows = rows.filter(r => restrictMarcas.includes(r.Marca));
-  popularFiltrosPt();
-  rows = aplicarFiltrosPt(rows);
-  const hint = byId('ptAjustesHint'); if (hint) hint.textContent = `${rows.length.toLocaleString('pt-BR')} linha(s) localizada(s).`;
-  let html = '<thead><tr><th>Status</th><th>Marca</th><th>Unidade</th><th>Turma</th><th>Turno</th><th>Material atual</th><th>Selo novo</th><th>Coleção nova</th><th>% novo</th><th>Ação</th></tr></thead><tbody>';
-  rows.slice(0, 500).forEach(r=>{
-    const edit = state.ptEdits[r.id] || {deleted:false, selo2027:r.Selo, colecao2027:r['Coleção'], pct2027:r.Pct};
-    html += `<tr><td><span class="pill ${edit.deleted?'danger':'ok'}">${edit.deleted?'Excluir':'Manter'}</span></td>
-      <td>${escapeHtml(r.Marca)}</td><td>${escapeHtml(r.Unidade)}</td><td>${escapeHtml(r.Turma)}</td><td>${escapeHtml(r.Turno)}</td>
-      <td>${escapeHtml(r['Coleção'])} (${pctFmt(r.Pct)})</td>
-      <td><select id="ptselo_${r.id}">${optList(allSelos)}</select></td>
-      <td><input id="ptcol_${r.id}" list="colecoesList" value="${escapeAttr(edit.colecao2027)}"></td>
-      <td><input id="ptpct_${r.id}" type="number" step="0.01" min="0" max="1" value="${escapeAttr(edit.pct2027)}"></td>
-      <td class="row-actions"><button class="secondary" onclick="savePtEdit('${r.id}', false)">Salvar</button><button class="danger" onclick="savePtEdit('${r.id}', true)">Excluir</button><button class="secondary" onclick="clearPtEdit('${r.id}')">Reverter</button></td></tr>`;
-  });
-  state.ptAdditions.filter(a => !restrictMarcas || restrictMarcas.includes(a.Marca)).forEach((a) => {
-    const idx = state.ptAdditions.indexOf(a);
-    html += `<tr><td><span class="pill warn">Novo</span></td><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Unidade||'')}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.Turno||'')}</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removePtAddition(${idx})">Remover</button></td></tr>`;
-  });
-  html += '</tbody>';
-  tbl.innerHTML = html;
-  rows.slice(0, 500).forEach(r=>{ const el=byId('ptselo_'+r.id); if(el) el.value=(state.ptEdits[r.id]||{selo2027:r.Selo}).selo2027 || r.Selo; });
-}
-
-function savePtEdit(id, deleted) {
-  const r=baseDataProprioTerceiro.find(x=>x.id===id); if(!r) return; const marca=r.Marca;
-  const valor={deleted, selo2027:byId('ptselo_'+id).value, colecao2027:byId('ptcol_'+id).value.trim() || r['Coleção'], pct2027:normalizePct(byId('ptpct_'+id).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString()};
-  db.collection('depara_edicoes').doc(marca).set({ ptEdits: { [id]: valor } }, {merge:true})
-    .then(()=>showToast((deleted?'Alteração excluída':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'danger':'ok'))
-    .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
-}
-function clearPtEdit(id) {
-  const r=baseDataProprioTerceiro.find(x=>x.id===id); if(!r) return; const marca=r.Marca;
-  db.collection('depara_edicoes').doc(marca).update(new firebase.firestore.FieldPath('ptEdits', String(id)), firebase.firestore.FieldValue.delete())
-    .then(()=>showToast('Alteração revertida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
-    .catch(e=>showToast('Erro ao reverter: '+e.message, 'danger'));
-}
-function addPtRow() {
-  const marca = byId('ptfMarca').value || prompt('Marca:');
-  if (!marca) return;
-  const unidade = byId('ptfUnidade').value || prompt('Unidade:', '') || '';
-  const turma = byId('ptfTurma').value || prompt('Turma:');
-  if (!turma) return;
-  const turno = byId('ptfTurno').value || prompt('Turno:', '') || '';
-  const baseSelo = byId('ptfSelo').value || '';
-  const selo2027 = prompt('Selo do novo material:', baseSelo); if (!selo2027) return;
-  const colecao2027 = prompt('Nome da nova coleção/material:'); if (!colecao2027) return;
-  const pct2027 = normalizePct(prompt('% de utilização entre 0 e 1:', '1'));
-  const obj = { Marca:marca, Unidade:unidade, Turma:turma, Turno:turno, baseSelo, selo2027, colecao2027, pct2027, autor: currentUser?currentUser.email:'', quando:new Date().toISOString() };
-  db.collection('depara_edicoes').doc(marca).set({ ptAdditions: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
-    .then(()=>showToast('Material adicionado'+(currentUser?(' · '+currentUser.email):''), 'ok'))
-    .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
-}
-function removePtAddition(index) {
-  const obj = state.ptAdditions[index];
-  if (!obj) return;
-  db.collection('depara_edicoes').doc(obj.Marca).update({ ptAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
-    .then(()=>showToast('Material removido'+(currentUser?(' · '+currentUser.email):''), 'warn'))
-    .catch(e=>showToast('Erro ao remover: '+e.message, 'danger'));
-}
-
 function renderCustosProprioTerceiro() {
   const tbl = byId('ptTable'); if (!tbl) return;
   const combos = getProprioTerceiroCombos();
+  const hint = byId('ptHint'); if (hint) hint.textContent = selosProprioTerceiro.length ? `${combos.length.toLocaleString('pt-BR')} combinação(ões) marca+selo+coleção encontrada(s).` : 'Nenhum selo configurado como próprio/terceiro ainda — peça ao admin para configurar na aba 7.';
   let html = '<thead><tr><th>Marca</th><th>Selo</th><th>Coleção</th><th>Custo unitário (R$)</th><th>Qtd. entregas no ano</th><th>Ação</th></tr></thead><tbody>';
   combos.forEach(c => {
     const chave = [c.Selo, c.Colecao].join('|||');
@@ -1326,22 +1250,22 @@ function currentRuleKey(row) { return ruleKey(row.Marca,row.Turma,row.Selo,row['
 function safeEnc(s) { return btoa(unescape(encodeURIComponent(s))).replaceAll('=','_'); }
 
 function init() {
-  ['eMarca','nMarca'].forEach(id => byId(id).innerHTML = optList(allBrands, true, 'Selecione a marca...'));
-  ['eSelo','nSelo'].forEach(id => byId(id).innerHTML = optList(allSelos, true, 'Selecione o selo...'));
-  byId('nTurno').innerHTML = optList(allTurnos.length ? allTurnos : ['Manhã','Tarde','Noite','Integral'], true, 'Selecione o turno...');
+  byId('eMarca').innerHTML = optList(allBrands, true, 'Selecione a marca...');
+  byId('eSelo').innerHTML = optList(allSelos, true, 'Selecione o selo...');
   byId('colecoesList').innerHTML = allColecoes.map(c=>`<option value="${escapeAttr(c)}"></option>`).join('');
   byId('eMarca').addEventListener('change', updateExceptionUnits);
   byId('eUnidade').addEventListener('change', updateExceptionTurmas);
   byId('eTurma').addEventListener('change', updateExceptionSelos);
-  byId('nMarca').addEventListener('change', updateNewUnits);
   document.querySelectorAll('nav button').forEach(btn => btn.addEventListener('click', () => switchPage(btn.dataset.page)));
-  updateExceptionUnits(); updateNewUnits(); renderNewClasses(); renderStats(); renderRules(); renderExceptions();
+  updateExceptionUnits(); renderNewClasses(); renderStats(); renderRules(); renderExceptions();
 }
-function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='regras') renderRules(); if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') { renderPtAjustes(); renderCustosProprioTerceiro(); } if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); } }
+function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='regras') renderRules(); if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') renderCustosProprioTerceiro(); if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); renderSelosPTCheckboxes(); } }
 function setSelectOptions(select, vals, keep=true, includeBlank=false, blankLabel='Todos') { const old=select.value; select.innerHTML=optList(vals, includeBlank, blankLabel); if(keep && vals.includes(old)) select.value=old; }
 function popularFiltrosRegras() {
+  let base = baseData;
+  if (restrictMarcas) base = base.filter(r => restrictMarcas.includes(r.Marca));
   const m=byId('rfMarca').value, t=byId('rfTurma').value, s=byId('rfSelo').value, c=byId('rfColecao').value;
-  const filtrar = (excluir) => baseDataRegular.filter(r =>
+  const filtrar = (excluir) => base.filter(r =>
     (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
     (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
     (excluir==='s' || !s || norm(r.Selo)===norm(s)) &&
@@ -1357,24 +1281,21 @@ function aplicarFiltrosRegras(rows) {
   return rows.filter(r => (!m||norm(r.Marca)===norm(m)) && (!t||norm(r.Turma)===norm(t)) && (!s||norm(r.Selo)===norm(s)) && (!c||norm(r['Coleção'])===norm(c)));
 }
 function updateExceptionUnits() { const marca=byId('eMarca').value; setSelectOptions(byId('eUnidade'), unidadesDoCatalogo(marca), false, true, 'Selecione a unidade...'); updateExceptionTurmas(); }
-function updateExceptionTurmas() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value; const rows=baseDataRegular.filter(r=>r.Marca===marca && r.Unidade===unidade); setSelectOptions(byId('eTurma'), sortTurmas(uniq(rows.map(r=>r.Turma))), false, true, 'Selecione a turma...'); updateExceptionSelos(); }
-function updateExceptionSelos() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value, turma=byId('eTurma').value; const rows=baseDataRegular.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma); setSelectOptions(byId('eSelo'), uniq(rows.map(r=>r.Selo)), false, true, 'Selecione o selo...'); renderExceptions(); }
-function updateNewUnits() { const marca=byId('nMarca').value; const vals = unidadesDoCatalogo(marca); byId('nUnidade').innerHTML = `<option value="">Regra da marca / sem escola específica</option>` + optList(vals); }
+function updateExceptionTurmas() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value; const rows=baseData.filter(r=>r.Marca===marca && r.Unidade===unidade); setSelectOptions(byId('eTurma'), sortTurmas(uniq(rows.map(r=>r.Turma))), false, true, 'Selecione a turma...'); updateExceptionSelos(); }
+function updateExceptionSelos() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value, turma=byId('eTurma').value; const rows=baseData.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma); setSelectOptions(byId('eSelo'), uniq(rows.map(r=>r.Selo)), false, true, 'Selecione o selo...'); renderExceptions(); }
 function renderRules() {
   popularFiltrosRegras();
-  const rows = aplicarFiltrosRegras(baseDataRegular);
+  const rows = aplicarFiltrosRegras(baseData);
   const groups={};
   rows.forEach(r=>{ const k=currentRuleKey(r); if(!groups[k]) groups[k]={Marca:r.Marca,Turma:r.Turma,Selo:r.Selo,Colecao:r['Coleção'], Pct:r.Pct, qtd:0, unidades:new Set()}; groups[k].qtd++; groups[k].unidades.add(r.Unidade); });
   const ordemTurmaFn = (a,b) => { const ia=TURMA_ORDER_MAP.has(norm(a))?TURMA_ORDER_MAP.get(norm(a)):Infinity; const ib=TURMA_ORDER_MAP.has(norm(b))?TURMA_ORDER_MAP.get(norm(b)):Infinity; return ia!==ib ? ia-ib : String(a).localeCompare(String(b),'pt-BR'); };
   const data=Object.values(groups).sort((a,b)=> a.Marca.localeCompare(b.Marca,'pt-BR') || ordemTurmaFn(a.Turma,b.Turma) || a.Selo.localeCompare(b.Selo,'pt-BR') || a.Colecao.localeCompare(b.Colecao,'pt-BR'));
   byId('ruleHint').textContent = `${data.length.toLocaleString('pt-BR')} regra(s) encontrada(s)${data.length>500?' — mostrando as primeiras 500':''}.`;
   const visiveis = data.slice(0,500);
-  let html='<thead><tr><th>Marca</th><th>Turma</th><th>Status</th><th>Material 2026</th><th>% 2026</th><th>Escolas</th><th>Selo novo</th><th>Material novo</th><th>% novo</th><th>Ação</th></tr></thead><tbody>';
+  let html='<thead><tr><th>Marca</th><th>Turma</th><th>Selo</th><th>Material atual</th><th>% atual</th><th>Selo novo</th><th>Material novo</th><th>% novo</th><th>Ação</th></tr></thead><tbody>';
   visiveis.forEach(g=>{ const k=ruleKey(g.Marca,g.Turma,g.Selo,g.Colecao); const edit=state.ruleEdits[k] || {deleted:false, selo2027:g.Selo, colecao2027:g.Colecao, pct2027:g.Pct}; const enc=safeEnc(k);
-    const statusLabel = edit.deleted ? 'Excluir' : 'Manter';
-    const statusClass = edit.deleted ? 'danger' : 'ok';
-    html += `<tr><td>${escapeHtml(g.Marca)}</td><td>${escapeHtml(g.Turma)}</td><td><span class="pill ${statusClass}">${statusLabel}</span></td><td>${escapeHtml(g.Colecao)} (${escapeHtml(g.Selo)})</td><td>${pctFmt(g.Pct)}</td><td>${g.unidades.size}</td><td><select id="rselo_${enc}" onchange="handleRuleSeloChange('${enc}')">${optList(allSelos)}</select></td><td><select id="rcol_${enc}"></select></td><td><input id="rpct_${enc}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(edit.pct2027))}"></td><td class="row-actions"><button class="secondary" onclick="saveRuleEdit('${encodeURIComponent(k)}', false)">Salvar</button><button class="danger" onclick="saveRuleEdit('${encodeURIComponent(k)}', true)">Excluir</button><button class="secondary" onclick="clearRuleEdit('${encodeURIComponent(k)}')">Reverter</button></td></tr>`; });
-  aplicarFiltrosRegras(state.ruleAdditions.map(a=>({Marca:a.Marca, Turma:a.Turma, Selo:a.baseSelo, 'Coleção':a.colecao2027, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.ruleAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Turma)}</td><td><span class="pill warn">Novo</span></td><td>—</td><td>—</td><td>Regra</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeRuleAddition(${i})">Remover</button></td></tr>`; });
+    html += `<tr><td>${escapeHtml(g.Marca)}</td><td>${escapeHtml(g.Turma)}</td><td>${escapeHtml(g.Selo)}</td><td>${escapeHtml(g.Colecao)}</td><td>${pctFmt(g.Pct)}</td><td><select id="rselo_${enc}" onchange="handleRuleSeloChange('${enc}')">${optList(allSelos)}</select></td><td><select id="rcol_${enc}"></select></td><td><input id="rpct_${enc}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(edit.pct2027))}"></td><td class="row-actions"><button class="secondary" onclick="saveRuleEdit('${encodeURIComponent(k)}', false)">Salvar</button><button class="danger" onclick="saveRuleEdit('${encodeURIComponent(k)}', true)">Excluir</button><button class="secondary" onclick="clearRuleEdit('${encodeURIComponent(k)}')">Reverter</button></td></tr>`; });
+  aplicarFiltrosRegras(state.ruleAdditions.map(a=>({Marca:a.Marca, Turma:a.Turma, Selo:a.baseSelo, 'Coleção':a.colecao2027, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.ruleAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.baseSelo)}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeRuleAddition(${i})">Remover</button></td></tr>`; });
   html+='</tbody>'; byId('rulesTable').innerHTML=html;
   visiveis.forEach(g=>{ const k=ruleKey(g.Marca,g.Turma,g.Selo,g.Colecao); const enc=safeEnc(k); const edit=state.ruleEdits[k] || {selo2027:g.Selo, colecao2027:g.Colecao}; const seloEl=byId('rselo_'+enc); if(seloEl) { seloEl.value=edit.selo2027 || g.Selo; setCollectionOptions('rcol_'+enc, seloEl.value, edit.colecao2027 || g.Colecao); } });
 }
@@ -1431,8 +1352,8 @@ function removeRuleAddition(index) {
 function renderExceptions() {
   if(!byId('eMarca').value || !byId('eUnidade').value || !byId('eTurma').value || !byId('eSelo').value) return;
   const marca=byId('eMarca').value, unidade=byId('eUnidade').value, turma=byId('eTurma').value, selo=byId('eSelo').value;
-  const rows=baseDataRegular.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma && r.Selo===selo); byId('exceptionHint').textContent = `${rows.length} linha(s) localizada(s) para esta escola/turma/selo.`;
-  let html='<thead><tr><th>Status</th><th>Turno</th><th>Material 2026</th><th>% 2026</th><th>Selo 2027</th><th>Material 2027</th><th>% 2027</th><th>Ação</th></tr></thead><tbody>';
+  const rows=baseData.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma && r.Selo===selo); byId('exceptionHint').textContent = `${rows.length} linha(s) localizada(s) para esta escola/turma/selo.`;
+  let html='<thead><tr><th>Status</th><th>Turno</th><th>Material atual</th><th>% atual</th><th>Selo 2027</th><th>Material 2027</th><th>% 2027</th><th>Ação</th></tr></thead><tbody>';
   rows.forEach(r=>{ const edit=state.exceptionEdits[r.id] || {deleted:false, selo2027:r.Selo, colecao2027:r['Coleção'], pct2027:r.Pct}; html += `<tr><td><span class="pill ${edit.deleted?'danger':'ok'}">${edit.deleted?'Excluir':'Manter'}</span></td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r['Coleção'])}</td><td>${pctFmt(r.Pct)}</td><td><select id="eselo_${r.id}">${optList(allSelos)}</select></td><td><input id="ecol_${r.id}" list="colecoesList" value="${escapeAttr(edit.colecao2027)}"></td><td><input id="epct_${r.id}" type="number" step="0.01" min="0" max="1" value="${escapeAttr(edit.pct2027)}"></td><td class="row-actions"><button class="secondary" onclick="saveExceptionEdit('${r.id}', false)">Salvar</button><button class="danger" onclick="saveExceptionEdit('${r.id}', true)">Excluir</button><button class="secondary" onclick="clearExceptionEdit('${r.id}')">Reverter</button></td></tr>`; });
   state.exceptionAdditions.filter(a=>a.Marca===marca && a.Unidade===unidade && a.Turma===turma && a.baseSelo===selo).forEach((a,i)=>{ html += `<tr><td><span class="pill warn">Novo</span></td><td>${escapeHtml(a.Turno||'')}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeExceptionAddition(${i}, '${escapeAttr(marca)}','${escapeAttr(unidade)}','${escapeAttr(turma)}','${escapeAttr(selo)}')">Remover</button></td></tr>`; });
   html+='</tbody>'; byId('exceptionsTable').innerHTML=html; rows.forEach(r=>{ const el=byId('eselo_'+r.id); if(el) el.value=(state.exceptionEdits[r.id]||{selo2027:r.Selo}).selo2027 || r.Selo; });
@@ -1468,14 +1389,6 @@ function removeExceptionAddition(localIndex, marca, unidade, turma, selo) {
   db.collection('depara_edicoes').doc(marca).update({ exceptionAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
     .then(()=>showToast('Exceção removida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
     .catch(e=>showToast('Erro ao remover: '+e.message, 'danger'));
-}
-function saveNewClass() {
-  const marca=byId('nMarca').value;
-  const obj={Marca:marca, Unidade:byId('nUnidade').value, Turma:byId('nTurma').value.trim(), Turno:byId('nTurno').value, selo2027:byId('nSelo').value, colecao2027:byId('nColecao').value.trim(), pct2027:normalizePct(byId('nPct').value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString()};
-  if(!obj.Marca || !obj.Turma || !obj.selo2027 || !obj.colecao2027) { alert('Preencha Marca, Nova turma, Selo e Coleção.'); return; }
-  db.collection('depara_edicoes').doc(marca).set({ newClasses: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
-    .then(()=>{ byId('nColecao').value=''; showToast('Nova turma salva'+(currentUser?(' · '+currentUser.email):''), 'ok'); })
-    .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
 }
 function renderNewClasses() { let html='<thead><tr><th>Marca</th><th>Escola</th><th>Turma</th><th>Turno</th><th>Selo</th><th>Material 2027</th><th>% 2027</th><th>Ação</th></tr></thead><tbody>'; state.newClasses.forEach((r,i)=> html += `<tr><td>${escapeHtml(r.Marca)}</td><td>${escapeHtml(r.Unidade||'Regra da marca')}</td><td>${escapeHtml(r.Turma)}</td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r.selo2027)}</td><td>${escapeHtml(r.colecao2027)}</td><td>${pctFmt(r.pct2027)}</td><td><button class="danger" onclick="removeNewClass(${i})">Remover</button></td></tr>`); html+='</tbody>'; byId('newTable').innerHTML=html; }
 
@@ -1530,10 +1443,10 @@ function clearNewClasses() {
 }
 function getFinalRows() {
   const final=[];
-  baseDataRegular.forEach(r=>{ let out={...r, Selo2027:r.Selo, Colecao2027:r['Coleção'], Pct2027:r.Pct, Origem:'Base 2026'}; const re=state.ruleEdits[currentRuleKey(r)]; if(re) { if(re.deleted) return; out.Selo2027=re.selo2027; out.Colecao2027=re.colecao2027; out.Pct2027=re.pct2027; out.Origem='Regra'; } const ee=state.exceptionEdits[r.id]; if(ee) { if(ee.deleted) return; out.Selo2027=ee.selo2027; out.Colecao2027=ee.colecao2027; out.Pct2027=ee.pct2027; out.Origem='Exceção'; } final.push(out); });
-  const comboMap={}; baseDataRegular.forEach(r=>{ const k=[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||'); if(!comboMap[k]) comboMap[k]={Marca:r.Marca,Unidade:r.Unidade,Turma:r.Turma,Turno:r.Turno, selos:new Set()}; comboMap[k].selos.add(r.Selo); });
+  baseData.forEach(r=>{ let out={...r, Selo2027:r.Selo, Colecao2027:r['Coleção'], Pct2027:r.Pct, Origem:'Base 2026'}; const re=state.ruleEdits[currentRuleKey(r)]; if(re) { if(re.deleted) return; out.Selo2027=re.selo2027; out.Colecao2027=re.colecao2027; out.Pct2027=re.pct2027; out.Origem='Regra'; } const ee=state.exceptionEdits[r.id]; if(ee) { if(ee.deleted) return; out.Selo2027=ee.selo2027; out.Colecao2027=ee.colecao2027; out.Pct2027=ee.pct2027; out.Origem='Exceção'; } final.push(out); });
+  const comboMap={}; baseData.forEach(r=>{ const k=[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||'); if(!comboMap[k]) comboMap[k]={Marca:r.Marca,Unidade:r.Unidade,Turma:r.Turma,Turno:r.Turno, selos:new Set()}; comboMap[k].selos.add(r.Selo); });
   Object.values(comboMap).forEach(c=>{ allSelos.forEach(selo=>{ if(c.selos.has(selo)) return; const k=ruleKey(c.Marca,c.Turma,selo,'Não utiliza'); const re=state.ruleEdits[k]; if(re && re.deleted) return; final.push({id:'NAO_UTILIZA', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:selo, 'Coleção':'Não utiliza', Pct:0, Selo2027:re ? re.selo2027 : selo, Colecao2027:re ? re.colecao2027 : 'Não utiliza', Pct2027:re ? re.pct2027 : 0, Origem:re ? 'Regra' : 'Não utiliza'}); }); });
-  state.ruleAdditions.forEach(a=>{ const combos={}; baseDataRegular.filter(r=>r.Marca===a.Marca && r.Turma===a.Turma).forEach(r=>{ combos[[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||')]={Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno}; }); Object.values(combos).forEach(c=>final.push({id:'ADD_RULE', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - regra'})); });
+  state.ruleAdditions.forEach(a=>{ const combos={}; baseData.filter(r=>r.Marca===a.Marca && r.Turma===a.Turma).forEach(r=>{ combos[[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||')]={Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno}; }); Object.values(combos).forEach(c=>final.push({id:'ADD_RULE', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - regra'})); });
   state.exceptionAdditions.forEach(a=>final.push({id:'ADD_EXC', Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - exceção'}));
   state.newClasses.forEach(a=>final.push({id:'NEW_CLASS', Marca:a.Marca, Unidade:a.Unidade||'Regra da marca', Turma:a.Turma, Turno:a.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova turma'}));
   getProprioTerceiroFinalRows().forEach(r=>final.push({...r, Origem: r.id==='ADD_PT' ? 'Nova coleção - próprio/terceiro' : 'Próprio/Terceiro'}));
@@ -1542,7 +1455,7 @@ function getFinalRows() {
 function getPanoramaRows() {
   const rows=[];
   const regrasJaListadas=new Set();
-  baseDataRegular.forEach(r=>{
+  baseData.forEach(r=>{
     const re=state.ruleEdits[currentRuleKey(r)];
     const ee=state.exceptionEdits[r.id];
     if (ee) {
