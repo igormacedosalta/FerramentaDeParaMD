@@ -1182,7 +1182,7 @@ let unsubscribePT = [];
 function getProprioTerceiroCombos() {
   let rows = getFinalRows();
   if (restrictMarcas) rows = rows.filter(r => restrictMarcas.includes(r.Marca));
-  rows = rows.filter(r => isSeloProprioTerceiro(r.Selo2027));
+  rows = rows.filter(r => isSeloProprioTerceiro(r.Selo2027) && norm(r.Colecao2027) !== 'não utiliza' && r.Colecao2027);
   const combos = {};
   rows.forEach(r => {
     const k = [r.Marca, r.Selo2027, r.Colecao2027].join('|||');
