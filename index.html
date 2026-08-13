@@ -143,11 +143,11 @@
 </nav>
 <main>
   <section id="regras" class="page active">
-    <div class="card"><h2>1. Regras por turma e selo</h2><div class="help">Use esta página para definir a regra padrão da marca. As mudanças aqui são aplicadas a todas as escolas da marca que tenham a mesma turma, selo e coleção. Os filtros abaixo são todos opcionais — deixe em branco pra ver tudo.</div><div class="grid"><div><label>Marca</label><select id="rfMarca" onchange="renderRules()"></select></div><div><label>Turma</label><select id="rfTurma" onchange="renderRules()"></select></div><div><label>Selo</label><select id="rfSelo" onchange="renderRules()"></select></div><div><label>Coleção</label><select id="rfColecao" onchange="renderRules()"></select></div></div></div>
+    <div class="card"><h2>1. Regras por turma e selo</h2><div class="help">Use esta página para definir a regra padrão da marca. As mudanças aqui são aplicadas a todas as escolas da marca que tenham a mesma turma, selo e coleção. Os filtros abaixo são todos opcionais — deixe em branco pra ver tudo.</div><div class="grid"><div><label>Marca</label><select id="rfMarca" onchange="renderRules()"></select></div><div><label>Turma</label><select id="rfTurma" onchange="renderRules()"></select></div><div><label>Selo</label><select id="rfSelo" onchange="renderRules()"></select></div><div><label>Coleção</label><select id="rfColecao" onchange="renderRules()"></select></div></div><div class="row-actions" style="margin-top:12px;"><button class="secondary" onclick="limparFiltros(['rfMarca','rfTurma','rfSelo','rfColecao'], renderRules)">Limpar filtros</button></div></div>
     <div class="card"><div class="row-actions" style="justify-content:space-between;align-items:center;margin-bottom:10px"><span class="muted" id="ruleHint"></span><button class="secondary" onclick="addRuleRow()">Adicionar coleção nova</button></div><div class="table-wrap"><table id="rulesTable"></table></div></div>
   </section>
   <section id="excecoes" class="page">
-    <div class="card"><h2>2. Exceções por escola</h2><div class="help">Use esta página para registrar exceções de uma escola específica. A exceção prevalece sobre a regra padrão. Os filtros abaixo são todos opcionais — deixe em branco pra ver tudo.</div><div class="grid"><div><label>Marca</label><select id="efMarca" onchange="renderExceptions()"></select></div><div><label>Unidade</label><select id="efUnidade" onchange="renderExceptions()"></select></div><div><label>Turma</label><select id="efTurma" onchange="renderExceptions()"></select></div><div><label>Turno</label><select id="efTurno" onchange="renderExceptions()"></select></div><div><label>Selo</label><select id="efSelo" onchange="renderExceptions()"></select></div></div></div>
+    <div class="card"><h2>2. Exceções por escola</h2><div class="help">Use esta página para registrar exceções de uma escola específica. A exceção prevalece sobre a regra padrão. Os filtros abaixo são todos opcionais — deixe em branco pra ver tudo.</div><div class="grid"><div><label>Marca</label><select id="efMarca" onchange="renderExceptions()"></select></div><div><label>Unidade</label><select id="efUnidade" onchange="renderExceptions()"></select></div><div><label>Turma</label><select id="efTurma" onchange="renderExceptions()"></select></div><div><label>Turno</label><select id="efTurno" onchange="renderExceptions()"></select></div><div><label>Selo</label><select id="efSelo" onchange="renderExceptions()"></select></div></div><div class="row-actions" style="margin-top:12px;"><button class="secondary" onclick="limparFiltros(['efMarca','efUnidade','efTurma','efTurno','efSelo'], renderExceptions)">Limpar filtros</button></div></div>
     <div class="card"><div class="row-actions" style="justify-content:space-between;align-items:center;margin-bottom:10px"><span class="muted" id="exceptionHint"></span><button class="secondary" onclick="addExceptionRow()">Adicionar coleção nova</button></div><div class="table-wrap"><table id="exceptionsTable"></table></div></div>
   </section>
   <section id="novas" class="page">
@@ -170,6 +170,7 @@
         <div><label>Turma</label><select id="pfTurma" onchange="renderPanorama()"></select></div>
         <div><label>Turno</label><select id="pfTurno" onchange="renderPanorama()"></select></div>
       </div>
+      <div class="row-actions" style="margin-top:12px;"><button class="secondary" onclick="limparFiltros(['pfMarca','pfUnidade','pfTurma','pfTurno'], renderPanorama)">Limpar filtros</button></div>
     </div>
     <div class="card"><div class="table-wrap"><table id="panoramaTable"></table></div></div>
   </section>
@@ -193,6 +194,7 @@
         <div><label>Turno</label><select id="ffTurno" onchange="renderFinal()"></select></div>
         <div><label>Selo</label><select id="ffSelo" onchange="renderFinal()"></select></div>
       </div>
+      <div class="row-actions" style="margin-top:12px;"><button class="secondary" onclick="limparFiltros(['ffMarca','ffUnidade','ffTurma','ffTurno','ffSelo'], renderFinal)">Limpar filtros</button></div>
     </div>
     <div class="card"><div class="table-wrap"><table id="finalTable"></table></div></div>
   </section>
@@ -1504,6 +1506,10 @@ function getPanoramaRows() {
 }
 function renderStats() { const el=byId('statsBox'); if(!el) return; let p=getPanoramaRows(), f=getFinalRows(); let baseCount=baseData.length; if(restrictMarcas){ p=p.filter(r=>restrictMarcas.includes(r.Marca)); f=f.filter(r=>restrictMarcas.includes(r.Marca)); baseCount=baseData.filter(r=>restrictMarcas.includes(r.Marca)).length; } const changed=p.filter(r=>String(r.Status).startsWith('Alterado')).length, del=p.filter(r=>String(r.Status).startsWith('Excluído')).length; el.innerHTML = `<div class="stat"><div class="muted">Linhas na base 2026</div><div class="num">${baseCount.toLocaleString('pt-BR')}</div></div><div class="stat"><div class="muted">Alterações</div><div class="num">${changed.toLocaleString('pt-BR')}</div></div><div class="stat"><div class="muted">Exclusões</div><div class="num">${del.toLocaleString('pt-BR')}</div></div><div class="stat"><div class="muted">Lista final</div><div class="num">${f.length.toLocaleString('pt-BR')}</div></div>`; }
 
+function limparFiltros(ids, callback) {
+  ids.forEach(id => { const el = byId(id); if (el) el.value = ''; });
+  callback();
+}
 function popularFiltro(selectId, valores, ordemTurma) {
   const sel = byId(selectId); if (!sel) return;
   const atual = sel.value;
