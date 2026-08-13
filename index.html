@@ -288,16 +288,7 @@
 
     <div class="card">
       <h3 style="margin-top:0;">Marcas</h3>
-      <div class="help">Adicione uma marca nova (ainda sem dados na base de adoção) para já poder cadastrar o diretor dela, ou remova uma marca fechada para que ela pare de aparecer nas listas de seleção. Os dados históricos de uma marca removida continuam preservados, ela só some do cadastro daqui pra frente.</div>
-      <div class="grid">
-        <div class="wide">
-          <label>Nome da nova marca</label>
-          <input type="text" id="novaMarcaNome" placeholder="Nome exato da marca">
-        </div>
-      </div>
-      <div class="row-actions" style="margin-top:14px;">
-        <button class="primary" onclick="adicionarMarca()">Adicionar marca</button>
-      </div>
+      <div class="help">Remova uma marca fechada para que ela pare de aparecer nas listas de seleção. Os dados históricos de uma marca removida continuam preservados, ela só some do cadastro daqui pra frente. Marcas novas aparecem automaticamente aqui a partir do upload da lista de turmas do ano seguinte (passo 3), não precisa cadastrar manualmente.</div>
       <div class="table-wrap" style="margin-top:16px;"><table id="marcasTable"></table></div>
     </div>
     <div class="card">
@@ -678,23 +669,6 @@ function renderMarcasTable() {
   });
   html += '</tbody>';
   tbl.innerHTML = html;
-}
-
-async function adicionarMarca() {
-  const nome = byId('novaMarcaNome').value.trim();
-  if (!nome) { alert('Informe o nome da marca.'); return; }
-  if (allBrands.includes(nome)) { alert('Essa marca já existe na lista.'); return; }
-  try {
-    await db.collection('depara_config').doc('marcas').set({
-      adicionadas: firebase.firestore.FieldValue.arrayUnion(nome),
-      removidas: firebase.firestore.FieldValue.arrayRemove(nome)
-    }, { merge: true });
-    await registrarHistorico('marca', `Marca adicionada: ${nome}`);
-    showToast('Marca adicionada. Recarregando...', 'ok');
-    setTimeout(() => location.reload(), 1200);
-  } catch (e) {
-    showToast('Erro ao adicionar marca: ' + e.message, 'danger');
-  }
 }
 
 async function removerMarca(marca) {
@@ -1332,26 +1306,36 @@ function getRegrasEfetivas() {
   if (restrictMarcas) base = base.filter(r => restrictMarcas.includes(r.Marca));
   const groups={};
   base.forEach(r=>{ const k=currentRuleKey(r); if(!groups[k]) groups[k]={Marca:r.Marca,Turma:r.Turma,SeloOriginal:r.Selo,ColecaoOriginal:r['Coleção'],PctOriginal:r.Pct,qtd:0,unidades:new Set()}; groups[k].qtd++; groups[k].unidades.add(r.Unidade); });
-  return Object.entries(groups).map(([k,g])=>{
+  const regras = Object.entries(groups).map(([k,g])=>{
     const edit = state.ruleEdits[k];
     return {
-      key: k, Marca: g.Marca, Turma: g.Turma, qtd: g.qtd,
+      key: k, Marca: g.Marca, Turma: g.Turma, qtd: g.qtd, isAddition: false,
       SeloOriginal: g.SeloOriginal, ColecaoOriginal: g.ColecaoOriginal, PctOriginal: g.PctOriginal,
       Selo: (edit && edit.selo2027) || g.SeloOriginal,
       Colecao: (edit && edit.colecao2027) || g.ColecaoOriginal,
       Pct: edit ? edit.pct2027 : g.PctOriginal,
     };
   });
+  state.ruleAdditions.filter(a => !restrictMarcas || restrictMarcas.includes(a.Marca)).forEach(a => {
+    regras.push({
+      key: null, Marca: a.Marca, Turma: a.Turma, isAddition: true, additionRef: a,
+      Selo: a.selo2027, Colecao: a.colecao2027, Pct: a.pct2027,
+    });
+  });
+  return regras;
 }
 function popularFiltrosRegras() {
   const regras = getRegrasEfetivas();
   const m=byId('rfMarca').value, t=byId('rfTurma').value, s=byId('rfSelo').value, c=byId('rfColecao').value;
-  const filtrar = (excluir) => regras.filter(r =>
-    (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
-    (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
-    (excluir==='s' || !s || norm(r.Selo)===norm(s)) &&
-    (excluir==='c' || !c || norm(r.Colecao)===norm(c))
-  );
+  const filtrar = (excluir) => {
+    const filtrado = regras.filter(r =>
+      (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
+      (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
+      (excluir==='s' || !s || norm(r.Selo)===norm(s)) &&
+      (excluir==='c' || !c || norm(r.Colecao)===norm(c))
+    );
+    return filtrado.length ? filtrado : regras; // evita "beco sem saída": se ficou vazio, ignora os outros filtros pra esta opção
+  };
   popularFiltro('rfMarca', filtrar('m').map(r=>r.Marca));
   popularFiltro('rfTurma', filtrar('t').map(r=>r.Turma), true);
   popularFiltro('rfSelo', filtrar('s').map(r=>r.Selo));
@@ -1452,11 +1436,17 @@ function renderRules() {
   byId('ruleHint').textContent = `${data.length.toLocaleString('pt-BR')} regra(s) encontrada(s)${data.length>500?' — mostrando as primeiras 500':''}.`;
   const visiveis = data.slice(0,500);
   let html='<thead><tr><th>Marca</th><th>Turma</th><th>Selo</th><th>Material atual</th><th>% atual</th><th>Selo novo</th><th>Material novo</th><th>% novo</th><th>Ação</th></tr></thead><tbody>';
-  visiveis.forEach(g=>{ const k=g.key; const enc=safeEnc(k);
-    html += `<tr><td>${escapeHtml(g.Marca)}</td><td>${escapeHtml(g.Turma)}</td><td>${escapeHtml(g.Selo)}</td><td>${escapeHtml(g.Colecao)}</td><td>${pctFmt(g.Pct)}</td><td><select id="rselo_${enc}" onchange="handleRuleSeloChange('${enc}')">${optList(allSelos)}</select></td><td><select id="rcol_${enc}"></select></td><td><input id="rpct_${enc}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(g.Pct))}"></td><td class="row-actions"><button class="secondary" onclick="saveRuleEdit('${encodeURIComponent(k)}', false)">Salvar</button><button class="danger" onclick="saveRuleEdit('${encodeURIComponent(k)}', true)">Excluir</button><button class="secondary" onclick="clearRuleEdit('${encodeURIComponent(k)}')">Reverter</button></td></tr>`; });
-  aplicarFiltrosRegras(state.ruleAdditions.map(a=>({Marca:a.Marca, Turma:a.Turma, Selo:a.selo2027, Colecao:a.colecao2027, Pct:a.pct2027, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.ruleAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.baseSelo)}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeRuleAddition(${i})">Remover</button></td></tr>`; });
+  visiveis.forEach(g=>{
+    if (g.isAddition) {
+      const i = state.ruleAdditions.indexOf(g.additionRef);
+      html += `<tr><td>${escapeHtml(g.Marca)}</td><td>${escapeHtml(g.Turma)}</td><td>—</td><td>—</td><td>—</td><td>${escapeHtml(g.Selo)}</td><td>${escapeHtml(g.Colecao)}</td><td>${pctFmt(g.Pct)}</td><td><button class="danger" onclick="removeRuleAddition(${i})">Remover</button></td></tr>`;
+      return;
+    }
+    const k=g.key; const enc=safeEnc(k);
+    html += `<tr><td>${escapeHtml(g.Marca)}</td><td>${escapeHtml(g.Turma)}</td><td>${escapeHtml(g.Selo)}</td><td>${escapeHtml(g.Colecao)}</td><td>${pctFmt(g.Pct)}</td><td><select id="rselo_${enc}" onchange="handleRuleSeloChange('${enc}')">${optList(allSelos)}</select></td><td><select id="rcol_${enc}"></select></td><td><input id="rpct_${enc}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(g.Pct))}"></td><td class="row-actions"><button class="secondary" onclick="saveRuleEdit('${encodeURIComponent(k)}', false)">Salvar</button><button class="danger" onclick="saveRuleEdit('${encodeURIComponent(k)}', true)">Excluir</button><button class="secondary" onclick="clearRuleEdit('${encodeURIComponent(k)}')">Reverter</button></td></tr>`;
+  });
   html+='</tbody>'; byId('rulesTable').innerHTML=html;
-  visiveis.forEach(g=>{ const enc=safeEnc(g.key); const seloEl=byId('rselo_'+enc); if(seloEl) { seloEl.value=g.Selo; setCollectionOptions('rcol_'+enc, g.Selo, g.Colecao); } });
+  visiveis.filter(g=>!g.isAddition).forEach(g=>{ const enc=safeEnc(g.key); const seloEl=byId('rselo_'+enc); if(seloEl) { seloEl.value=g.Selo; setCollectionOptions('rcol_'+enc, g.Selo, g.Colecao); } });
 }
 function saveRuleEdit(kEnc, deleted) {
   const k=decodeURIComponent(kEnc); const enc=safeEnc(k); const parts=k.split('|||'); const marca=parts[0]; const colecao=parts[3];
@@ -1478,8 +1468,8 @@ function addRuleRow() {
   if(!marca) return;
   const turma=byId('rfTurma').value || prompt('Turma:');
   if(!turma) return;
-  const baseSelo=byId('rfSelo').value || prompt('Selo (referência):','') || '';
-  byId('modalRuleSelo').innerHTML = optList(allSelos);
+  const baseSelo=byId('rfSelo').value || '';
+  byId('modalRuleSelo').innerHTML = optList(allSelos, true, 'Selecione o selo...');
   byId('modalRuleSelo').value = baseSelo;
   byId('modalRuleSelo').onchange = handleModalRuleSeloChange;
   handleModalRuleSeloChange();
