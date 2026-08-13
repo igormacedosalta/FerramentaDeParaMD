@@ -1301,9 +1301,11 @@ function renderRules() {
 }
 function saveRuleEdit(kEnc, deleted) {
   const k=decodeURIComponent(kEnc); const enc=safeEnc(k); const parts=k.split('|||'); const marca=parts[0]; const colecao=parts[3];
-  const valor={deleted, selo2027:byId('rselo_'+enc).value, colecao2027:byId('rcol_'+enc).value.trim() || colecao, pct2027:normalizePct(byId('rpct_'+enc).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString()};
+  const valor = deleted
+    ? { deleted:false, selo2027:byId('rselo_'+enc).value, colecao2027:'Não utiliza', pct2027:0, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() }
+    : { deleted:false, selo2027:byId('rselo_'+enc).value, colecao2027:byId('rcol_'+enc).value.trim() || colecao, pct2027:normalizePct(byId('rpct_'+enc).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
   db.collection('depara_edicoes').doc(marca).set({ ruleEdits: { [k]: valor } }, {merge:true})
-    .then(()=>showToast((deleted?'Alteração excluída':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'danger':'ok'))
+    .then(()=>showToast((deleted?'Marcado como não utiliza':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'warn':'ok'))
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
 }
 function clearRuleEdit(kEnc) {
