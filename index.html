@@ -1449,7 +1449,6 @@ function getFinalRows() {
   state.ruleAdditions.forEach(a=>{ const combos={}; baseData.filter(r=>r.Marca===a.Marca && r.Turma===a.Turma).forEach(r=>{ combos[[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||')]={Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno}; }); Object.values(combos).forEach(c=>final.push({id:'ADD_RULE', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - regra'})); });
   state.exceptionAdditions.forEach(a=>final.push({id:'ADD_EXC', Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - exceção'}));
   state.newClasses.forEach(a=>final.push({id:'NEW_CLASS', Marca:a.Marca, Unidade:a.Unidade||'Regra da marca', Turma:a.Turma, Turno:a.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova turma'}));
-  getProprioTerceiroFinalRows().forEach(r=>final.push({...r, Origem: r.id==='ADD_PT' ? 'Nova coleção - próprio/terceiro' : 'Próprio/Terceiro'}));
   return final;
 }
 function getPanoramaRows() {
