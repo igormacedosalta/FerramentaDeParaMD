@@ -147,8 +147,8 @@
     <div class="card"><div class="row-actions" style="justify-content:space-between;align-items:center;margin-bottom:10px"><span class="muted" id="ruleHint"></span><button class="secondary" onclick="addRuleRow()">Adicionar coleção nova</button></div><div class="table-wrap"><table id="rulesTable"></table></div></div>
   </section>
   <section id="excecoes" class="page">
-    <div class="card"><h2>2. Exceções por escola</h2><div class="help">Use esta página para registrar exceções de uma escola específica. A exceção prevalece sobre a regra padrão.</div><div class="grid"><div><label>Marca</label><select id="eMarca"></select></div><div><label>Escola / Unidade</label><select id="eUnidade"></select></div><div><label>Turma</label><select id="eTurma"></select></div><div><label>Selo</label><select id="eSelo"></select></div></div><div style="margin-top:12px"><button class="primary" onclick="renderExceptions()">Carregar exceções</button></div></div>
-    <div class="card"><div class="row-actions" style="justify-content:space-between;align-items:center;margin-bottom:10px"><div><strong>Coleções cadastradas na escola em 2026</strong><br><span class="muted" id="exceptionHint"></span></div><button class="secondary" onclick="addExceptionRow()">Adicionar coleção nova nesta escola</button></div><div class="table-wrap"><table id="exceptionsTable"></table></div></div>
+    <div class="card"><h2>2. Exceções por escola</h2><div class="help">Use esta página para registrar exceções de uma escola específica. A exceção prevalece sobre a regra padrão. Os filtros abaixo são todos opcionais — deixe em branco pra ver tudo.</div><div class="grid"><div><label>Marca</label><select id="efMarca" onchange="renderExceptions()"></select></div><div><label>Unidade</label><select id="efUnidade" onchange="renderExceptions()"></select></div><div><label>Turma</label><select id="efTurma" onchange="renderExceptions()"></select></div><div><label>Turno</label><select id="efTurno" onchange="renderExceptions()"></select></div><div><label>Selo</label><select id="efSelo" onchange="renderExceptions()"></select></div></div></div>
+    <div class="card"><div class="row-actions" style="justify-content:space-between;align-items:center;margin-bottom:10px"><span class="muted" id="exceptionHint"></span><button class="secondary" onclick="addExceptionRow()">Adicionar coleção nova</button></div><div class="table-wrap"><table id="exceptionsTable"></table></div></div>
   </section>
   <section id="novas" class="page">
     <div class="card">
@@ -518,11 +518,7 @@ async function mostrarApp() {
 
 function aplicarRestricaoMarcas(marcas) {
   restrictMarcas = marcas;
-  const sel = byId('eMarca');
-  sel.innerHTML = optList(marcas, marcas.length > 1, 'Selecione a marca...');
-  if (marcas.length === 1) { sel.value = marcas[0]; sel.disabled = true; }
-  updateExceptionUnits();
-  renderStats(); renderRules(); renderPanorama(); renderFinal();
+  renderStats(); renderRules(); renderExceptions(); renderPanorama(); renderFinal();
 }
 
 function desligarListenersEdicoes() {
@@ -837,10 +833,6 @@ async function carregarCatalogoChunked(metaCollection, chunksCollection) {
 async function carregarCatalogos() {
   try { catalogoSelosColecoes = await carregarCatalogoChunked('depara_catalogo_sc_meta', 'depara_catalogo_sc_chunks'); }
   catch (e) { console.error('Erro ao carregar catálogo de selos/coleções', e); catalogoSelosColecoes = []; }
-}
-
-function unidadesDoCatalogo(marca) {
-  return uniq(baseData.filter(r=>norm(r.Marca)===norm(marca)).map(r=>r.Unidade));
 }
 
 function renderBaseAtualInfo() {
@@ -1250,16 +1242,11 @@ function currentRuleKey(row) { return ruleKey(row.Marca,row.Turma,row.Selo,row['
 function safeEnc(s) { return btoa(unescape(encodeURIComponent(s))).replaceAll('=','_'); }
 
 function init() {
-  byId('eMarca').innerHTML = optList(allBrands, true, 'Selecione a marca...');
-  byId('eSelo').innerHTML = optList(allSelos, true, 'Selecione o selo...');
   byId('colecoesList').innerHTML = allColecoes.map(c=>`<option value="${escapeAttr(c)}"></option>`).join('');
-  byId('eMarca').addEventListener('change', updateExceptionUnits);
-  byId('eUnidade').addEventListener('change', updateExceptionTurmas);
-  byId('eTurma').addEventListener('change', updateExceptionSelos);
   document.querySelectorAll('nav button').forEach(btn => btn.addEventListener('click', () => switchPage(btn.dataset.page)));
-  updateExceptionUnits(); renderNewClasses(); renderStats(); renderRules(); renderExceptions();
+  renderNewClasses(); renderStats(); renderRules(); renderExceptions();
 }
-function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='regras') renderRules(); if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') renderCustosProprioTerceiro(); if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); renderSelosPTCheckboxes(); } }
+function switchPage(id) { document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='regras') renderRules(); if(id==='excecoes') renderExceptions(); if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') renderCustosProprioTerceiro(); if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); renderSelosPTCheckboxes(); } }
 function setSelectOptions(select, vals, keep=true, includeBlank=false, blankLabel='Todos') { const old=select.value; select.innerHTML=optList(vals, includeBlank, blankLabel); if(keep && vals.includes(old)) select.value=old; }
 function popularFiltrosRegras() {
   let base = baseData;
@@ -1280,9 +1267,79 @@ function aplicarFiltrosRegras(rows) {
   const m=byId('rfMarca').value, t=byId('rfTurma').value, s=byId('rfSelo').value, c=byId('rfColecao').value;
   return rows.filter(r => (!m||norm(r.Marca)===norm(m)) && (!t||norm(r.Turma)===norm(t)) && (!s||norm(r.Selo)===norm(s)) && (!c||norm(r['Coleção'])===norm(c)));
 }
-function updateExceptionUnits() { const marca=byId('eMarca').value; setSelectOptions(byId('eUnidade'), unidadesDoCatalogo(marca), false, true, 'Selecione a unidade...'); updateExceptionTurmas(); }
-function updateExceptionTurmas() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value; const rows=baseData.filter(r=>r.Marca===marca && r.Unidade===unidade); setSelectOptions(byId('eTurma'), sortTurmas(uniq(rows.map(r=>r.Turma))), false, true, 'Selecione a turma...'); updateExceptionSelos(); }
-function updateExceptionSelos() { const marca=byId('eMarca').value, unidade=byId('eUnidade').value, turma=byId('eTurma').value; const rows=baseData.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma); setSelectOptions(byId('eSelo'), uniq(rows.map(r=>r.Selo)), false, true, 'Selecione o selo...'); renderExceptions(); }
+function popularFiltrosExcecoes() {
+  let base = baseData;
+  if (restrictMarcas) base = base.filter(r => restrictMarcas.includes(r.Marca));
+  const m=byId('efMarca').value, u=byId('efUnidade').value, t=byId('efTurma').value, tn=byId('efTurno').value, s=byId('efSelo').value;
+  const filtrar = (excluir) => base.filter(r =>
+    (excluir==='m' || !m || norm(r.Marca)===norm(m)) &&
+    (excluir==='u' || !u || norm(r.Unidade)===norm(u)) &&
+    (excluir==='t' || !t || norm(r.Turma)===norm(t)) &&
+    (excluir==='tn' || !tn || norm(r.Turno)===norm(tn)) &&
+    (excluir==='s' || !s || norm(r.Selo)===norm(s))
+  );
+  popularFiltro('efMarca', filtrar('m').map(r=>r.Marca));
+  popularFiltro('efUnidade', filtrar('u').map(r=>r.Unidade));
+  popularFiltro('efTurma', filtrar('t').map(r=>r.Turma), true);
+  popularFiltro('efTurno', filtrar('tn').map(r=>r.Turno));
+  popularFiltro('efSelo', filtrar('s').map(r=>r.Selo));
+}
+function aplicarFiltrosExcecoes(rows) {
+  const m=byId('efMarca').value, u=byId('efUnidade').value, t=byId('efTurma').value, tn=byId('efTurno').value, s=byId('efSelo').value;
+  return rows.filter(r => (!m||norm(r.Marca)===norm(m)) && (!u||norm(r.Unidade)===norm(u)) && (!t||norm(r.Turma)===norm(t)) && (!tn||norm(r.Turno)===norm(tn)) && (!s||norm(r.Selo)===norm(s)));
+}
+function renderExceptions() {
+  let base = baseData;
+  if (restrictMarcas) base = base.filter(r => restrictMarcas.includes(r.Marca));
+  popularFiltrosExcecoes();
+  const rows = aplicarFiltrosExcecoes(base);
+  byId('exceptionHint').textContent = `${rows.length.toLocaleString('pt-BR')} linha(s) encontrada(s)${rows.length>500?' — mostrando as primeiras 500':''}.`;
+  const visiveis = rows.slice(0,500);
+  let html='<thead><tr><th>Marca</th><th>Unidade</th><th>Turma</th><th>Turno</th><th>Selo</th><th>Material atual</th><th>% atual</th><th>Selo novo</th><th>Material novo</th><th>% novo</th><th>Ação</th></tr></thead><tbody>';
+  visiveis.forEach(r=>{ const edit=state.exceptionEdits[r.id] || {deleted:false, selo2027:r.Selo, colecao2027:r['Coleção'], pct2027:r.Pct}; html += `<tr><td>${escapeHtml(r.Marca)}</td><td>${escapeHtml(r.Unidade)}</td><td>${escapeHtml(r.Turma)}</td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r.Selo)}</td><td>${escapeHtml(r['Coleção'])}</td><td>${pctFmt(r.Pct)}</td><td><select id="eselo_${r.id}">${optList(allSelos)}</select></td><td><input id="ecol_${r.id}" list="colecoesList" value="${escapeAttr(edit.colecao2027)}"></td><td><input id="epct_${r.id}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(edit.pct2027))}"></td><td class="row-actions"><button class="secondary" onclick="saveExceptionEdit('${r.id}', false)">Salvar</button><button class="danger" onclick="saveExceptionEdit('${r.id}', true)">Excluir</button><button class="secondary" onclick="clearExceptionEdit('${r.id}')">Reverter</button></td></tr>`; });
+  aplicarFiltrosExcecoes(state.exceptionAdditions.map(a=>({Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:a.baseSelo, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.exceptionAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Unidade)}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.Turno||'')}</td><td>${escapeHtml(a.baseSelo)}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeExceptionAddition(${i})">Remover</button></td></tr>`; });
+  html+='</tbody>'; byId('exceptionsTable').innerHTML=html;
+  visiveis.forEach(r=>{ const el=byId('eselo_'+r.id); if(el) el.value=(state.exceptionEdits[r.id]||{selo2027:r.Selo}).selo2027 || r.Selo; });
+}
+function saveExceptionEdit(id, deleted) {
+  const r=baseData.find(x=>x.id===id); const marca=r.Marca;
+  const valor = deleted
+    ? { deleted:false, selo2027:byId('eselo_'+id).value, colecao2027:'Não utiliza', pct2027:0, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() }
+    : { deleted:false, selo2027:byId('eselo_'+id).value, colecao2027:byId('ecol_'+id).value.trim() || r['Coleção'], pct2027:normalizePct(byId('epct_'+id).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
+  db.collection('depara_edicoes').doc(marca).set({ exceptionEdits: { [id]: valor } }, {merge:true})
+    .then(()=>showToast((deleted?'Marcado como não utiliza':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'warn':'ok'))
+    .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
+}
+function clearExceptionEdit(id) {
+  const r=baseData.find(x=>x.id===id); const marca=r.Marca;
+  db.collection('depara_edicoes').doc(marca).update(new firebase.firestore.FieldPath('exceptionEdits', String(id)), firebase.firestore.FieldValue.delete())
+    .then(()=>showToast('Alteração revertida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
+    .catch(e=>showToast('Erro ao reverter: '+e.message, 'danger'));
+}
+function addExceptionRow() {
+  const marca=byId('efMarca').value || prompt('Marca:');
+  if(!marca) return;
+  const unidade=byId('efUnidade').value || prompt('Unidade:');
+  if(!unidade) return;
+  const turma=byId('efTurma').value || prompt('Turma:');
+  if(!turma) return;
+  const baseSelo=byId('efSelo').value || '';
+  const turno=byId('efTurno').value || prompt('Informe o turno para esta exceção. Pode deixar vazio se não aplicável:', '');
+  const selo2027=prompt('Informe o selo do novo material:', baseSelo); if(!selo2027) return;
+  const colecao2027=prompt('Informe o nome da nova coleção/material:'); if(!colecao2027) return;
+  const pct2027=normalizePct(prompt('Informe o % de utilização entre 0 e 1:', '1'));
+  const obj={Marca:marca,Unidade:unidade,Turma:turma,Turno:turno,baseSelo,selo2027,colecao2027,pct2027,autor:currentUser?currentUser.email:'',quando:new Date().toISOString()};
+  db.collection('depara_edicoes').doc(marca).set({ exceptionAdditions: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
+    .then(()=>showToast('Exceção adicionada'+(currentUser?(' · '+currentUser.email):''), 'ok'))
+    .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
+}
+function removeExceptionAddition(index) {
+  const obj = state.exceptionAdditions[index];
+  if(!obj) return;
+  db.collection('depara_edicoes').doc(obj.Marca).update({ exceptionAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
+    .then(()=>showToast('Exceção removida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
+    .catch(e=>showToast('Erro ao remover: '+e.message, 'danger'));
+}
 function renderRules() {
   popularFiltrosRegras();
   const rows = aplicarFiltrosRegras(baseData);
@@ -1349,47 +1406,6 @@ function removeRuleAddition(index) {
   if(!obj) return;
   db.collection('depara_edicoes').doc(obj.Marca).update({ ruleAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
     .then(()=>showToast('Coleção removida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
-    .catch(e=>showToast('Erro ao remover: '+e.message, 'danger'));
-}
-function renderExceptions() {
-  if(!byId('eMarca').value || !byId('eUnidade').value || !byId('eTurma').value || !byId('eSelo').value) return;
-  const marca=byId('eMarca').value, unidade=byId('eUnidade').value, turma=byId('eTurma').value, selo=byId('eSelo').value;
-  const rows=baseData.filter(r=>r.Marca===marca && r.Unidade===unidade && r.Turma===turma && r.Selo===selo); byId('exceptionHint').textContent = `${rows.length} linha(s) localizada(s) para esta escola/turma/selo.`;
-  let html='<thead><tr><th>Status</th><th>Turno</th><th>Material atual</th><th>% atual</th><th>Selo 2027</th><th>Material 2027</th><th>% 2027</th><th>Ação</th></tr></thead><tbody>';
-  rows.forEach(r=>{ const edit=state.exceptionEdits[r.id] || {deleted:false, selo2027:r.Selo, colecao2027:r['Coleção'], pct2027:r.Pct}; html += `<tr><td><span class="pill ${edit.deleted?'danger':'ok'}">${edit.deleted?'Excluir':'Manter'}</span></td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r['Coleção'])}</td><td>${pctFmt(r.Pct)}</td><td><select id="eselo_${r.id}">${optList(allSelos)}</select></td><td><input id="ecol_${r.id}" list="colecoesList" value="${escapeAttr(edit.colecao2027)}"></td><td><input id="epct_${r.id}" type="number" step="0.01" min="0" max="1" value="${escapeAttr(edit.pct2027)}"></td><td class="row-actions"><button class="secondary" onclick="saveExceptionEdit('${r.id}', false)">Salvar</button><button class="danger" onclick="saveExceptionEdit('${r.id}', true)">Excluir</button><button class="secondary" onclick="clearExceptionEdit('${r.id}')">Reverter</button></td></tr>`; });
-  state.exceptionAdditions.filter(a=>a.Marca===marca && a.Unidade===unidade && a.Turma===turma && a.baseSelo===selo).forEach((a,i)=>{ html += `<tr><td><span class="pill warn">Novo</span></td><td>${escapeHtml(a.Turno||'')}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeExceptionAddition(${i}, '${escapeAttr(marca)}','${escapeAttr(unidade)}','${escapeAttr(turma)}','${escapeAttr(selo)}')">Remover</button></td></tr>`; });
-  html+='</tbody>'; byId('exceptionsTable').innerHTML=html; rows.forEach(r=>{ const el=byId('eselo_'+r.id); if(el) el.value=(state.exceptionEdits[r.id]||{selo2027:r.Selo}).selo2027 || r.Selo; });
-}
-function saveExceptionEdit(id, deleted) {
-  const r=baseData.find(x=>x.id===id); const marca=r.Marca;
-  const valor={deleted, selo2027:byId('eselo_'+id).value, colecao2027:byId('ecol_'+id).value.trim() || r['Coleção'], pct2027:normalizePct(byId('epct_'+id).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString()};
-  db.collection('depara_edicoes').doc(marca).set({ exceptionEdits: { [id]: valor } }, {merge:true})
-    .then(()=>showToast((deleted?'Alteração excluída':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'danger':'ok'))
-    .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
-}
-function clearExceptionEdit(id) {
-  const r=baseData.find(x=>x.id===id); const marca=r.Marca;
-  db.collection('depara_edicoes').doc(marca).update(new firebase.firestore.FieldPath('exceptionEdits', String(id)), firebase.firestore.FieldValue.delete())
-    .then(()=>showToast('Alteração revertida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
-    .catch(e=>showToast('Erro ao reverter: '+e.message, 'danger'));
-}
-function addExceptionRow() {
-  const marca=byId('eMarca').value, unidade=byId('eUnidade').value, turma=byId('eTurma').value, baseSelo=byId('eSelo').value;
-  const turno=prompt('Informe o turno para esta exceção. Pode deixar vazio se não aplicável:', '');
-  const selo2027=prompt('Informe o selo do novo material:', baseSelo); if(!selo2027) return;
-  const colecao2027=prompt('Informe o nome da nova coleção/material:'); if(!colecao2027) return;
-  const pct2027=normalizePct(prompt('Informe o % de utilização entre 0 e 1:', '1'));
-  const obj={Marca:marca,Unidade:unidade,Turma:turma,Turno:turno,baseSelo,selo2027,colecao2027,pct2027,autor:currentUser?currentUser.email:'',quando:new Date().toISOString()};
-  db.collection('depara_edicoes').doc(marca).set({ exceptionAdditions: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
-    .then(()=>showToast('Exceção adicionada'+(currentUser?(' · '+currentUser.email):''), 'ok'))
-    .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
-}
-function removeExceptionAddition(localIndex, marca, unidade, turma, selo) {
-  const matching = state.exceptionAdditions.filter(a=>a.Marca===marca && a.Unidade===unidade && a.Turma===turma && a.baseSelo===selo);
-  const obj = matching[localIndex];
-  if(!obj) return;
-  db.collection('depara_edicoes').doc(marca).update({ exceptionAdditions: firebase.firestore.FieldValue.arrayRemove(obj) })
-    .then(()=>showToast('Exceção removida'+(currentUser?(' · '+currentUser.email):''), 'warn'))
     .catch(e=>showToast('Erro ao remover: '+e.message, 'danger'));
 }
 function renderNewClasses() { let html='<thead><tr><th>Marca</th><th>Escola</th><th>Turma</th><th>Turno</th><th>Selo</th><th>Material 2027</th><th>% 2027</th><th>Ação</th></tr></thead><tbody>'; state.newClasses.forEach((r,i)=> html += `<tr><td>${escapeHtml(r.Marca)}</td><td>${escapeHtml(r.Unidade||'Regra da marca')}</td><td>${escapeHtml(r.Turma)}</td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r.selo2027)}</td><td>${escapeHtml(r.colecao2027)}</td><td>${pctFmt(r.pct2027)}</td><td><button class="danger" onclick="removeNewClass(${i})">Remover</button></td></tr>`); html+='</tbody>'; byId('newTable').innerHTML=html; }
