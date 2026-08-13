@@ -185,7 +185,7 @@
     </div>
   </section>
   <section id="final" class="page">
-    <div class="card"><h2>6. Lista de adoção final 2027</h2><div class="row-actions"><button class="primary" onclick="renderFinal()">Atualizar lista final</button><button class="secondary" onclick="downloadCSV('final')">Exportar lista final CSV</button><button class="danger" onclick="resetAll()">Apagar todas as alterações salvas</button></div><p class="muted">A lista final considera: base 2026 + regras da página 1 + exceções da página 2 + novas turmas da página 3 + materiais próprios/terceiros da página 5.</p></div>
+    <div class="card"><h2>6. Lista de adoção final 2027</h2><div class="row-actions"><button class="primary" onclick="renderFinal()">Atualizar lista final</button><button class="secondary" onclick="downloadCSV('final')">Exportar lista final XLSX</button><button class="danger" onclick="resetAll()">Apagar todas as alterações salvas</button></div><p class="muted">A lista final considera: base 2026 + regras da página 1 + exceções da página 2 + novas turmas da página 3 + materiais próprios/terceiros da página 5.</p></div>
     <div class="card">
       <div class="grid">
         <div><label>Marca</label><select id="ffMarca" onchange="renderFinal()"></select></div>
@@ -1566,7 +1566,14 @@ function renderFinal() { let rows=getFinalRows().map(r=>({Origem:r.Origem, Marca
 function renderTable(id, data, cols, maxRows) { let html='<thead><tr>'+cols.map(c=>`<th>${escapeHtml(c.replaceAll('_',' '))}</th>`).join('')+'</tr></thead><tbody>'; data.slice(0,maxRows).forEach(r=>{ html+='<tr>'+cols.map(c=>`<td>${typeof r[c]==='number' && c.toLowerCase().includes('utilizacao') ? pctFmt(r[c]) : escapeHtml(r[c])}</td>`).join('')+'</tr>'; }); html+='</tbody>'; byId(id).innerHTML=html; }
 function toCSV(rows) { if(!rows.length) return ''; const cols=Object.keys(rows[0]); const esc=v=>'"'+String(v ?? '').replaceAll('"','""')+'"'; return [cols.map(esc).join(';')].concat(rows.map(r=>cols.map(c=>esc(r[c])).join(';'))).join('\n'); }
 function downloadBlob(name, content, type) { const blob=new Blob([content],{type}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
-function downloadCSV(kind) { if(kind==='panorama') { let rows=getPanoramaRows(); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); rows=aplicarFiltrosPanorama(rows); downloadBlob('panorama_mudancas_2027.csv', toCSV(rows), 'text/csv;charset=utf-8'); } else { let rows=getFinalRows().map(r=>({Origem:r.Origem,Marca:r.Marca,Unidade:r.Unidade,Turma:r.Turma,Turno:r.Turno,Selo:r.Selo2027,Colecao:r.Colecao2027,Utilizacao:r.Pct2027})); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); rows=aplicarFiltrosFinal(rows); downloadBlob('lista_adocao_final_2027.csv', toCSV(rows), 'text/csv;charset=utf-8'); } }
+function downloadXLSX(rows, filename, sheetName) {
+  if (!rows.length) { alert('Nenhuma linha para exportar com os filtros atuais.'); return; }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Planilha1');
+  XLSX.writeFile(wb, filename);
+}
+function downloadCSV(kind) { if(kind==='panorama') { let rows=getPanoramaRows(); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); rows=aplicarFiltrosPanorama(rows); downloadBlob('panorama_mudancas_2027.csv', toCSV(rows), 'text/csv;charset=utf-8'); } else { let rows=getFinalRows().map(r=>({Origem:r.Origem,Marca:r.Marca,Unidade:r.Unidade,Turma:r.Turma,Turno:r.Turno,Selo:r.Selo2027,Colecao:r.Colecao2027,Utilizacao:r.Pct2027})); if(restrictMarcas) rows=rows.filter(r=>restrictMarcas.includes(r.Marca)); rows=aplicarFiltrosFinal(rows); downloadXLSX(rows, 'lista_adocao_final_2027.xlsx', 'Lista final'); } }
 function resetAll() {
   let marcas;
   if (currentUser.papel === 'admin') {
