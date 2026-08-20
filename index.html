@@ -320,6 +320,15 @@
 
 </main>
 
+<div id="progressoModal" class="modal-backdrop" style="display:none;">
+  <div class="modal" style="max-width:440px;text-align:center;">
+    <h3 id="progressoTitulo" style="margin-top:0;">Processando...</h3>
+    <div style="background:var(--line);border-radius:999px;height:18px;overflow:hidden;margin:18px 0 10px;">
+      <div id="progressoBarra" style="background:var(--brand2);height:100%;width:0%;transition:width .25s ease;"></div>
+    </div>
+    <div id="progressoTexto" class="muted">Iniciando...</div>
+  </div>
+</div>
 <div id="ruleAddModal" class="modal-backdrop">
   <div class="modal">
     <h3>Adicionar coleção nova nesta regra</h3>
@@ -688,7 +697,22 @@ async function removerMarca(marca) {
 /* ======================= FIM ADMIN: DIRETORES ======================= */
 
 /* ======================= CATÁLOGOS DE CADASTRO ======================= */
-async function enviarCatalogoChunked(linhas, metaCollection, chunksCollection, tamanhoChunk) {
+function mostrarProgresso(titulo) {
+  byId('progressoTitulo').textContent = titulo;
+  byId('progressoBarra').style.width = '0%';
+  byId('progressoTexto').textContent = 'Iniciando...';
+  byId('progressoModal').style.display = 'flex';
+}
+function atualizarProgresso(pct, texto) {
+  const p = Math.max(0, Math.min(100, Math.round(pct)));
+  byId('progressoBarra').style.width = p + '%';
+  byId('progressoTexto').textContent = `${p}%${texto ? ' — ' + texto : ''}`;
+}
+function esconderProgresso() {
+  byId('progressoModal').style.display = 'none';
+}
+
+async function enviarCatalogoChunked(linhas, metaCollection, chunksCollection, tamanhoChunk, onProgress) {
   const totalChunks = Math.ceil(linhas.length / tamanhoChunk) || 0;
   // apaga chunks antigos que possam ter sobrado de um cadastro maior anterior
   const metaAntigo = await db.collection(metaCollection).doc('atual').get();
@@ -699,6 +723,7 @@ async function enviarCatalogoChunked(linhas, metaCollection, chunksCollection, t
   for (let i = 0; i < totalChunks; i++) {
     const parte = linhas.slice(i * tamanhoChunk, (i + 1) * tamanhoChunk);
     await db.collection(chunksCollection).doc('atual__' + i).set({ linhas: parte });
+    if (onProgress) onProgress((i + 1) / totalChunks);
   }
   await db.collection(metaCollection).doc('atual').set({ totalChunks, totalLinhas: linhas.length, atualizadoEm: new Date().toISOString() });
 }
@@ -706,23 +731,29 @@ async function enviarCatalogoChunked(linhas, metaCollection, chunksCollection, t
 async function enviarCatalogoSelosColecoes() {
   const arquivo = byId('catalogoScArquivo').files[0];
   if (!arquivo) { alert('Selecione o arquivo primeiro.'); return; }
-  showToast('Processando cadastro de Selo/Coleção...', 'ok');
+  mostrarProgresso('Enviando Selos/Coleções novos');
   try {
+    atualizarProgresso(5, 'Lendo arquivo...');
     const buf = await arquivo.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    atualizarProgresso(15, 'Processando linhas...');
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rowsRaw = XLSX.utils.sheet_to_json(sheet, { defval: null });
     const linhas = rowsRaw.map(r => ({
       Selo: campoFlexivel(r, 'Selo', 'selo'),
       'Coleção': campoFlexivel(r, 'Coleção', 'Colecao', 'coleção', 'colecao'),
     })).filter(r => r.Selo && r['Coleção']);
-    if (!linhas.length) { alert('Nenhuma linha válida. Confira as colunas: Selo, Coleção.'); return; }
-    await enviarCatalogoChunked(linhas, 'depara_catalogo_sc_meta', 'depara_catalogo_sc_chunks', 3000);
+    if (!linhas.length) { esconderProgresso(); alert('Nenhuma linha válida. Confira as colunas: Selo, Coleção.'); return; }
+    atualizarProgresso(25, 'Enviando para o banco de dados...');
+    await enviarCatalogoChunked(linhas, 'depara_catalogo_sc_meta', 'depara_catalogo_sc_chunks', 3000, (frac) => atualizarProgresso(25 + frac * 65, 'Enviando dados...'));
+    atualizarProgresso(95, 'Finalizando...');
     await registrarHistorico('base', `Cadastro de Selo/Coleção enviado: ${arquivo.name} (${linhas.length.toLocaleString('pt-BR')} linhas)`);
+    atualizarProgresso(100, 'Concluído!');
     showToast(`Cadastro enviado: ${linhas.length.toLocaleString('pt-BR')} linhas. Recarregando...`, 'ok');
     setTimeout(() => location.reload(), 1200);
   } catch (e) {
     console.error(e);
+    esconderProgresso();
     showToast('Erro ao enviar cadastro: ' + e.message, 'danger');
   }
 }
@@ -931,25 +962,31 @@ async function arquivarCicloAtual() {
   }
 }
 
-async function subirNovaBaseEChunks(linhas, anoBase, anoAlvo, novoCicloId) {
+async function subirNovaBaseEChunks(linhas, anoBase, anoAlvo, novoCicloId, opcoes) {
+  opcoes = opcoes || {};
   const totalChunks = Math.ceil(linhas.length / TAMANHO_CHUNK_BASE);
   for (let i = 0; i < totalChunks; i++) {
     const parte = linhas.slice(i * TAMANHO_CHUNK_BASE, (i + 1) * TAMANHO_CHUNK_BASE);
     await db.collection('depara_bases_chunks').doc(novoCicloId + '__' + i).set({ linhas: parte });
+    if (opcoes.onProgress) opcoes.onProgress((i + 1) / totalChunks);
   }
   await db.collection('depara_bases_meta').doc(novoCicloId).set({ totalChunks, totalLinhas: linhas.length, anoBase, anoAlvo, criadoEm: new Date().toISOString() });
-  const marcasNovas = [...new Set(linhas.map(r => r.Marca))];
-  for (const marca of marcasNovas) { await db.collection('depara_edicoes').doc(marca).delete().catch(() => {}); }
+  if (!opcoes.pularResetEdicoes) {
+    const marcasNovas = [...new Set(linhas.map(r => r.Marca))];
+    for (const marca of marcasNovas) { await db.collection('depara_edicoes').doc(marca).delete().catch(() => {}); }
+  }
   await db.collection('depara_config').doc('atual').set({ cicloId: novoCicloId, anoBase, anoAlvo, atualizadoEm: new Date().toISOString() });
 }
 
 async function enviarReferenciaAnoVigente() {
   const arquivo = byId('referenciaArquivo').files[0];
   if (!arquivo) { alert('Selecione o arquivo primeiro.'); return; }
-  showToast('Processando lista de adoção do ano vigente...', 'ok');
+  mostrarProgresso('Enviando lista de adoção do ano vigente');
   try {
+    atualizarProgresso(5, 'Lendo arquivo...');
     const buf = await arquivo.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    atualizarProgresso(15, 'Processando linhas...');
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rowsRaw = XLSX.utils.sheet_to_json(sheet, { defval: null });
     const linhas = rowsRaw.map(r => {
@@ -965,14 +1002,19 @@ async function enviarReferenciaAnoVigente() {
         Tipo: classificacao.includes('próprio') || classificacao.includes('proprio') || classificacao.includes('terceiro') ? 'ProprioTerceiro' : 'Regular',
       };
     }).filter(r => r.Marca && r.Turma && r['Coleção']);
-    if (!linhas.length) { alert('Nenhuma linha válida. Confira as colunas: Marca, Unidade, Turma, Turno, Selo, Coleção, Utilização.'); return; }
+    if (!linhas.length) { esconderProgresso(); alert('Nenhuma linha válida. Confira as colunas: Marca, Unidade, Turma, Turno, Selo, Coleção, Utilização.'); return; }
     canonizarTurmas(linhas);
-    await enviarCatalogoChunked(linhas, 'depara_referencia_meta', 'depara_referencia_chunks', 3000);
+    atualizarProgresso(25, 'Enviando para o banco de dados...');
+    await enviarCatalogoChunked(linhas, 'depara_referencia_meta', 'depara_referencia_chunks', 3000, (frac) => atualizarProgresso(25 + frac * 65, 'Enviando dados...'));
+    atualizarProgresso(95, 'Finalizando...');
     await registrarHistorico('base', `Referência do ano vigente enviada: ${arquivo.name} (${linhas.length.toLocaleString('pt-BR')} linhas)`);
+    atualizarProgresso(100, 'Concluído!');
     showToast(`Referência do ano vigente salva: ${linhas.length.toLocaleString('pt-BR')} linhas.`, 'ok');
     renderReferenciaInfo();
+    setTimeout(esconderProgresso, 500);
   } catch (e) {
     console.error(e);
+    esconderProgresso();
     showToast('Erro ao salvar referência: ' + e.message, 'danger');
   }
 }
@@ -1082,14 +1124,16 @@ function confirmarAplicarHeranca() {
     : `Isso vai criar o ciclo ${anoAlvo} do zero a partir da referência de ${anoBase}, arquivando o ciclo atual (se houver) e ZERANDO Regras/Exceções/Novas turmas.\n\nDigite CONFIRMAR para prosseguir:`;
   const confirmText = prompt(msg);
   if (confirmText !== 'CONFIRMAR') { showToast('Operação cancelada', 'warn'); return; }
-  showToast('Calculando herança de regras — isso pode levar alguns minutos...', 'ok');
   aplicarHerancaEAvancarAno(arquivo, anoBase, anoAlvo, mesmoAno).catch(e => {
     console.error(e);
+    esconderProgresso();
     showToast('Erro ao aplicar herança: ' + e.message, 'danger');
   });
 }
 
 async function aplicarHerancaEAvancarAno(file, anoBase, anoAlvo, incremental) {
+  mostrarProgresso(incremental ? 'Incorporando turmas novas' : 'Criando novo ciclo');
+  atualizarProgresso(3, 'Lendo arquivo de turmas...');
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array', cellDates: true });
   const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -1102,11 +1146,12 @@ async function aplicarHerancaEAvancarAno(file, anoBase, anoAlvo, incremental) {
     Turno: campoFlexivel(r, 'Turno', 'turno'),
   })).filter(r => r.Marca && r.Turma);
 
-  if (!turmasNovas.length) { alert('Nenhuma linha válida encontrada. Confira as colunas: Marca, Unidade, Turma, Turno.'); return; }
+  if (!turmasNovas.length) { esconderProgresso(); alert('Nenhuma linha válida encontrada. Confira as colunas: Marca, Unidade, Turma, Turno.'); return; }
   canonizarTurmas(turmasNovas);
 
+  atualizarProgresso(10, 'Carregando referência do ano vigente...');
   const referencia = await carregarReferenciaAnoVigente();
-  if (!referencia.length) { alert('Envie primeiro a lista de adoção do ano vigente (passo 1) — ela é a referência usada para calcular as regras.'); return; }
+  if (!referencia.length) { esconderProgresso(); alert('Envie primeiro a lista de adoção do ano vigente (passo 1) — ela é a referência usada para calcular as regras.'); return; }
   const { exactMap, modaMTT } = construirMapasHeranca(referencia);
 
   // no modo incremental, remove do arquivo as turmas que já existem na base atual (não tocar no que já está em andamento)
@@ -1119,8 +1164,9 @@ async function aplicarHerancaEAvancarAno(file, anoBase, anoAlvo, incremental) {
     });
   }
 
-  if (!turmasNovas.length) { showToast('Nenhuma turma nova encontrada — tudo que está no arquivo já existe no ciclo atual.', 'warn'); return; }
+  if (!turmasNovas.length) { esconderProgresso(); showToast('Nenhuma turma nova encontrada — tudo que está no arquivo já existe no ciclo atual.', 'warn'); return; }
 
+  atualizarProgresso(20, 'Calculando herança de regras...');
   const linhasCalculadas = [];
   const pendentes = [];
   let contExata = 0, contModa = 0;
@@ -1148,28 +1194,43 @@ async function aplicarHerancaEAvancarAno(file, anoBase, anoAlvo, incremental) {
     // soma à base do ciclo já em andamento, sem arquivar nem resetar edições
     const cfgAtual = window.__cicloAtual;
     const baseAtualizada = baseData.concat(linhasCalculadas);
-    await subirNovaBaseEChunks(baseAtualizada, cfgAtual.anoBase, cfgAtual.anoAlvo, cfgAtual.cicloId);
+    atualizarProgresso(30, 'Enviando turmas para o banco de dados...');
+    await subirNovaBaseEChunks(baseAtualizada, cfgAtual.anoBase, cfgAtual.anoAlvo, cfgAtual.cicloId, {
+      pularResetEdicoes: true,
+      onProgress: (frac) => atualizarProgresso(30 + frac * 55, 'Enviando dados...'),
+    });
+    atualizarProgresso(88, 'Registrando turmas pendentes...');
     const marcasComPendentes = [...new Set(pendentes.map(p => p.Marca))];
     for (const marca of marcasComPendentes) {
       const doc = pendentes.filter(p => p.Marca === marca);
       await db.collection('depara_edicoes').doc(marca).set({ turmasPendentes: firebase.firestore.FieldValue.arrayUnion(...doc) }, { merge: true });
     }
+    atualizarProgresso(96, 'Finalizando...');
     await registrarHistorico('base', `Turmas novas incorporadas ao ciclo ${cfgAtual.anoAlvo}: ${contExata} exatas, ${contModa} por moda, ${pendentes.length} pendentes (arquivo: ${file.name})`);
+    atualizarProgresso(100, 'Concluído!');
     showToast(`Turmas novas incorporadas ao ciclo ${cfgAtual.anoAlvo}: ${contExata.toLocaleString('pt-BR')} exatas, ${contModa.toLocaleString('pt-BR')} pela mais frequente, ${pendentes.length.toLocaleString('pt-BR')} foram para "Novas turmas". Recarregando...`, 'ok');
   } else {
-    if (!linhasCalculadas.length && !pendentes.length) { alert('Nenhuma turma processada.'); return; }
+    if (!linhasCalculadas.length && !pendentes.length) { esconderProgresso(); alert('Nenhuma turma processada.'); return; }
     const novoCicloId = 'ciclo_' + anoAlvo + '_' + Date.now();
+    atualizarProgresso(25, 'Arquivando ciclo atual...');
     await arquivarCicloAtual();
-    await subirNovaBaseEChunks(linhasCalculadas, anoBase, anoAlvo, novoCicloId);
+    atualizarProgresso(35, 'Enviando nova base para o banco de dados...');
+    await subirNovaBaseEChunks(linhasCalculadas, anoBase, anoAlvo, novoCicloId, {
+      pularResetEdicoes: false,
+      onProgress: (frac) => atualizarProgresso(35 + frac * 50, 'Enviando dados...'),
+    });
+    atualizarProgresso(88, 'Registrando turmas pendentes...');
     const marcasComPendentes = [...new Set(pendentes.map(p => p.Marca))];
     for (const marca of marcasComPendentes) {
       const doc = pendentes.filter(p => p.Marca === marca);
       await db.collection('depara_edicoes').doc(marca).set({ turmasPendentes: doc }, { merge: true });
     }
+    atualizarProgresso(96, 'Finalizando...');
     await registrarHistorico('base', `Novo ciclo ${anoAlvo} criado a partir de ${anoBase}: ${contExata} exatas, ${contModa} por moda, ${pendentes.length} pendentes (arquivo: ${file.name})`);
+    atualizarProgresso(100, 'Concluído!');
     showToast(`Ano ${anoAlvo} criado: ${contExata.toLocaleString('pt-BR')} turmas herdaram regra exata, ${contModa.toLocaleString('pt-BR')} herdaram a regra mais frequente da marca+turma+turno, ${pendentes.length.toLocaleString('pt-BR')} foram para "Novas turmas" sem referência. Recarregando...`, 'ok');
   }
-  setTimeout(() => location.reload(), 2500);
+  setTimeout(() => location.reload(), 1800);
 }
 
 async function renderHistoricoCiclos() {
