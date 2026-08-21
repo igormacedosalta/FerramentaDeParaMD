@@ -1431,12 +1431,16 @@ function getExcecoesEfetivas() {
   let base = baseData;
   if (restrictMarcas) base = base.filter(r => restrictMarcas.includes(r.Marca));
   return base.map(r => {
-    const edit = state.exceptionEdits[r.id];
+    const re = state.ruleEdits[currentRuleKey(r)];
+    const ee = state.exceptionEdits[r.id];
+    let selo = r.Selo, colecao = r['Coleção'], pct = r.Pct;
+    if (re) { selo = re.selo2027; colecao = re.colecao2027; pct = re.pct2027; }
+    if (ee) { selo = ee.selo2027; colecao = ee.colecao2027; pct = ee.pct2027; }
     return {
       ...r,
-      SeloEfetivo: (edit && edit.selo2027) || r.Selo,
-      ColecaoEfetiva: edit ? (edit.colecao2027 || r['Coleção']) : r['Coleção'],
-      PctEfetivo: edit ? edit.pct2027 : r.Pct,
+      SeloEfetivo: selo,
+      ColecaoEfetiva: colecao,
+      PctEfetivo: pct,
     };
   });
 }
