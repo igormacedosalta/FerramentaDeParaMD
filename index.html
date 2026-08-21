@@ -358,13 +358,14 @@ let colecoesPorSelo = {};
 function recomputarDerivadosDeBaseData() {
   allBrands = uniq(baseData.map(r=>r.Marca));
   allBrands = uniq([...allBrands, ...marcasExtras.adicionadas]).filter(m => !marcasExtras.removidas.includes(m));
-  const selosCatalogo = uniq(catalogoSelosColecoes.map(r=>r.Selo));
-  allSelos = selosCatalogo.length ? selosCatalogo : uniq(baseData.map(r=>r.Selo));
-  const colecoesCatalogo = uniq(catalogoSelosColecoes.map(r=>r['Coleção']));
-  allColecoes = colecoesCatalogo.length ? colecoesCatalogo : uniq(baseData.map(r=>r['Coleção']));
+  const fonteVocabulario = (referenciaAnoVigenteCache || []).concat(catalogoSelosColecoes || []);
+  const selosVocabulario = uniq(fonteVocabulario.map(r=>r.Selo));
+  allSelos = selosVocabulario.length ? selosVocabulario : uniq(baseData.map(r=>r.Selo));
+  const colecoesVocabulario = uniq(fonteVocabulario.map(r=>r['Coleção']));
+  allColecoes = colecoesVocabulario.length ? colecoesVocabulario : uniq(baseData.map(r=>r['Coleção']));
   allTurnos = uniq(baseData.map(r=>r.Turno));
   colecoesPorSelo = {};
-  const fonteColecoes = catalogoSelosColecoes.length ? catalogoSelosColecoes : baseData;
+  const fonteColecoes = fonteVocabulario.length ? fonteVocabulario : baseData;
   fonteColecoes.forEach(r=>{ (colecoesPorSelo[r.Selo] ||= new Set()).add(r['Coleção']); });
   Object.keys(colecoesPorSelo).forEach(k=>{ colecoesPorSelo[k] = [...colecoesPorSelo[k]].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR')); });
 }
@@ -785,6 +786,7 @@ async function carregarBaseAtual() {
   await carregarMarcasExtras();
   await carregarSelosProprioTerceiro();
   await carregarCatalogos();
+  await carregarReferenciaAnoVigente();
   try {
     const configDoc = await db.collection('depara_config').doc('atual').get();
     if (!configDoc.exists) { baseData = SEED_BASE_DATA; recomputarDerivadosDeBaseData(); window.__cicloAtual = null; return; }
@@ -1445,11 +1447,12 @@ function renderExceptions() {
   byId('exceptionHint').textContent = `${rows.length.toLocaleString('pt-BR')} linha(s) encontrada(s)${rows.length>500?' — mostrando as primeiras 500':''}.`;
   const visiveis = rows.slice(0,500);
   let html='<thead><tr><th>Marca</th><th>Unidade</th><th>Turma</th><th>Turno</th><th>Selo</th><th>Material atual</th><th>% atual</th><th>Selo novo</th><th>Material novo</th><th>% novo</th><th>Ação</th></tr></thead><tbody>';
-  visiveis.forEach(r=>{ html += `<tr><td>${escapeHtml(r.Marca)}</td><td>${escapeHtml(r.Unidade)}</td><td>${escapeHtml(r.Turma)}</td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r.SeloEfetivo)}</td><td>${escapeHtml(r.ColecaoEfetiva)}</td><td>${pctFmt(r.PctEfetivo)}</td><td><select id="eselo_${r.id}">${optList(allSelos)}</select></td><td><input id="ecol_${r.id}" list="colecoesList" value="${escapeAttr(r.ColecaoEfetiva)}"></td><td><input id="epct_${r.id}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(r.PctEfetivo))}"></td><td class="row-actions"><button class="secondary" onclick="saveExceptionEdit('${r.id}', false)">Salvar</button><button class="danger" onclick="saveExceptionEdit('${r.id}', true)">Excluir</button><button class="secondary" onclick="clearExceptionEdit('${r.id}')">Reverter</button></td></tr>`; });
+  visiveis.forEach(r=>{ html += `<tr><td>${escapeHtml(r.Marca)}</td><td>${escapeHtml(r.Unidade)}</td><td>${escapeHtml(r.Turma)}</td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r.SeloEfetivo)}</td><td>${escapeHtml(r.ColecaoEfetiva)}</td><td>${pctFmt(r.PctEfetivo)}</td><td><select id="eselo_${r.id}" onchange="handleExceptionSeloChange('${r.id}')">${optList(allSelos)}</select></td><td><select id="ecol_${r.id}"></select></td><td><input id="epct_${r.id}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(r.PctEfetivo))}"></td><td class="row-actions"><button class="secondary" onclick="saveExceptionEdit('${r.id}', false)">Salvar</button><button class="danger" onclick="saveExceptionEdit('${r.id}', true)">Excluir</button><button class="secondary" onclick="clearExceptionEdit('${r.id}')">Reverter</button></td></tr>`; });
   aplicarFiltrosExcecoes(state.exceptionAdditions.map(a=>({Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:a.baseSelo, SeloEfetivo:a.baseSelo, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.exceptionAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Unidade)}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.Turno||'')}</td><td>${escapeHtml(a.baseSelo)}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeExceptionAddition(${i})">Remover</button></td></tr>`; });
   html+='</tbody>'; byId('exceptionsTable').innerHTML=html;
-  visiveis.forEach(r=>{ const el=byId('eselo_'+r.id); if(el) el.value=r.SeloEfetivo; });
+  visiveis.forEach(r=>{ const el=byId('eselo_'+r.id); if(el) { el.value=r.SeloEfetivo; setCollectionOptions('ecol_'+r.id, r.SeloEfetivo, r.ColecaoEfetiva); } });
 }
+function handleExceptionSeloChange(id) { const selo=byId('eselo_'+id).value; setCollectionOptions('ecol_'+id, selo, 'Não utiliza'); }
 function saveExceptionEdit(id, deleted) {
   const r=baseData.find(x=>x.id===id); const marca=r.Marca;
   const valor = deleted
