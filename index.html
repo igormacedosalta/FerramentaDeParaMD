@@ -337,7 +337,7 @@
       <div><label>Marca</label><select id="modalExcMarca" onchange="handleModalExcMarcaChange()"></select></div>
       <div><label>Unidade</label><select id="modalExcUnidade" onchange="handleModalExcUnidadeChange()"></select></div>
       <div><label>Turma</label><select id="modalExcTurma"></select></div>
-      <div><label>Turno</label><select id="modalExcTurno"></select></div>
+      <div><label>Turno (deixe em branco para aplicar a todos os turnos da turma)</label><select id="modalExcTurno"></select></div>
       <div><label>Selo</label><select id="modalExcSelo" onchange="handleModalExcSeloChange()"></select></div>
       <div><label>Coleção</label><select id="modalExcColecao"></select></div>
       <div><label>% utilização</label><input id="modalExcPct" type="number" min="0" max="100" step="1" value="100"></div>
@@ -1519,7 +1519,7 @@ function handleModalExcUnidadeChange() {
   const turmaFiltro = byId('efTurma').value;
   if (turmaFiltro && turmas.includes(turmaFiltro)) byId('modalExcTurma').value = turmaFiltro;
   const turnos = uniq(rows.map(r=>r.Turno));
-  byId('modalExcTurno').innerHTML = optList(turnos, true, 'Selecione o turno...');
+  byId('modalExcTurno').innerHTML = optList(turnos, true, 'Todos os turnos');
   const turnoFiltro = byId('efTurno').value;
   if (turnoFiltro && turnos.includes(turnoFiltro)) byId('modalExcTurno').value = turnoFiltro;
 }
@@ -1676,7 +1676,16 @@ function getFinalRows() {
   const comboMap={}; baseData.forEach(r=>{ const k=[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||'); if(!comboMap[k]) comboMap[k]={Marca:r.Marca,Unidade:r.Unidade,Turma:r.Turma,Turno:r.Turno, selos:new Set()}; comboMap[k].selos.add(r.Selo); });
   Object.values(comboMap).forEach(c=>{ allSelos.forEach(selo=>{ if(c.selos.has(selo)) return; const k=ruleKey(c.Marca,c.Turma,selo,'Não utiliza'); const re=state.ruleEdits[k]; if(re && re.deleted) return; final.push({id:'NAO_UTILIZA', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:selo, 'Coleção':'Não utiliza', Pct:0, Selo2027:re ? re.selo2027 : selo, Colecao2027:re ? re.colecao2027 : 'Não utiliza', Pct2027:re ? re.pct2027 : 0, Origem:re ? 'Regra' : 'Não utiliza'}); }); });
   state.ruleAdditions.forEach(a=>{ const combos={}; baseData.filter(r=>r.Marca===a.Marca && r.Turma===a.Turma).forEach(r=>{ combos[[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||')]={Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno}; }); Object.values(combos).forEach(c=>final.push({id:'ADD_RULE', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - regra'})); });
-  state.exceptionAdditions.forEach(a=>final.push({id:'ADD_EXC', Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - exceção'}));
+  state.exceptionAdditions.forEach(a=>{
+    if (a.Turno) {
+      final.push({id:'ADD_EXC', Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - exceção'});
+    } else {
+      const turnos = uniq(baseData.filter(r=>r.Marca===a.Marca && r.Unidade===a.Unidade && r.Turma===a.Turma).map(r=>r.Turno));
+      (turnos.length ? turnos : ['']).forEach(turno=>{
+        final.push({id:'ADD_EXC', Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - exceção'});
+      });
+    }
+  });
   state.newClasses.forEach(a=>final.push({id:'NEW_CLASS', Marca:a.Marca, Unidade:a.Unidade||'Regra da marca', Turma:a.Turma, Turno:a.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova turma'}));
   return final;
 }
