@@ -257,6 +257,17 @@
     </div>
 
     <div class="card">
+      <h3 style="margin-top:0;">Aplicar selo novo a todas as marcas e turmas</h3>
+      <div class="help">Depois de cadastrar um selo novo (acima), use isso para adicioná-lo de uma vez em <strong>todas as combinações de Marca+Turma</strong> da base — sem precisar repetir "Adicionar coleção nova" marca por marca em "1. Regras". Isso cria uma adição de regra em cada Marca+Turma existente.</div>
+      <div class="grid">
+        <div><label>Selo</label><select id="globalSeloSelo"></select></div>
+        <div class="wide"><label>Coleção</label><input id="globalSeloColecao" list="colecoesList" placeholder="Digite ou selecione uma coleção"></div>
+        <div><label>% utilização</label><input id="globalSeloPct" type="number" min="0" max="100" step="1" value="100"></div>
+      </div>
+      <div class="row-actions" style="margin-top:14px;"><button class="danger" onclick="confirmarAplicarSeloGlobal()">Aplicar a todas as marcas e turmas</button></div>
+    </div>
+
+    <div class="card">
       <h3 style="margin-top:0;">Selos de materiais próprios/terceiros</h3>
       <div class="help">Marque quais selos representam materiais próprios/terceiros. Sempre que um selo marcado aqui for usado numa turma — seja na base original, seja através de uma alteração feita em "1. Regras" ou "2. Exceções" — essa combinação passa a aparecer na aba "5. Materiais próprios/terceiros" para os diretores informarem custo e quantidade de entregas.</div>
       <div id="selosPTCheckboxes" style="display:flex;flex-wrap:wrap;gap:10px;padding:10px;border:1px solid var(--line);border-radius:9px;max-height:260px;overflow:auto;"></div>
@@ -552,7 +563,7 @@ async function mostrarApp() {
   await carregarBaseAtual();
   init();
   if (!isAdmin) aplicarRestricaoMarcas(currentUser.marcas);
-  if (isAdmin) { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); renderSelosPTCheckboxes(); renderHistoricoAlteracoes(); }
+  if (isAdmin) { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); renderSelosPTCheckboxes(); renderHistoricoAlteracoes(); byId("globalSeloSelo").innerHTML = optList(allSelos, true, "Selecione o selo..."); }
   ligarListenersEdicoes();
   ligarListenerProprioTerceiro();
 }
@@ -1381,7 +1392,7 @@ function init() {
   renderNewClasses(); renderStats(); renderRules(); renderExceptions();
 }
 let paginaAtual = 'regras';
-function switchPage(id) { paginaAtual = id; document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='regras') renderRules(); if(id==='excecoes') renderExceptions(); if(id==='novas') { renderNewClasses(); renderTurmasPendentes(); } if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') renderCustosProprioTerceiro(); if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); renderSelosPTCheckboxes(); renderHistoricoAlteracoes(); } }
+function switchPage(id) { paginaAtual = id; document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.page===id)); document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id===id)); if(id==='regras') renderRules(); if(id==='excecoes') renderExceptions(); if(id==='novas') { renderNewClasses(); renderTurmasPendentes(); } if(id==='panorama') renderPanorama(); if(id==='proprioterceiro') renderCustosProprioTerceiro(); if(id==='final') renderFinal(); if(id==='admin' && currentUser && currentUser.papel==='admin') { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); renderSelosPTCheckboxes(); renderHistoricoAlteracoes(); byId("globalSeloSelo").innerHTML = optList(allSelos, true, "Selecione o selo..."); } }
 function setSelectOptions(select, vals, keep=true, includeBlank=false, blankLabel='Todos') { const old=select.value; select.innerHTML=optList(vals, includeBlank, blankLabel); if(keep && vals.includes(old)) select.value=old; }
 function getRegrasEfetivas() {
   let base = baseData;
@@ -1611,6 +1622,40 @@ function saveRuleAdditionFromModal() {
     .then(()=>{ showToast('Coleção adicionada'+(currentUser?(' · '+currentUser.email):''), 'ok'); registrarHistorico('regra', `Coleção nova adicionada à regra: ${marca} / ${turma} → ${selo2027} / ${colecao2027} (${pctFmt(pct2027)})`); })
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
   closeRuleAddModal();
+}
+function confirmarAplicarSeloGlobal() {
+  const selo = byId('globalSeloSelo').value;
+  const colecao = byId('globalSeloColecao').value.trim();
+  const pct = normalizePct(byId('globalSeloPct').value);
+  if (!selo || !colecao) { alert('Selecione o Selo e informe a Coleção.'); return; }
+  const combos = {};
+  baseData.forEach(r => { combos[[r.Marca, r.Turma].join('|||')] = { Marca: r.Marca, Turma: r.Turma }; });
+  const lista = Object.values(combos);
+  if (!lista.length) { alert('Nenhuma combinação de Marca+Turma encontrada na base.'); return; }
+  const confirmText = prompt(`Isso vai adicionar "${colecao}" (selo ${selo}, ${pctFmt(pct)}) em ${lista.length.toLocaleString('pt-BR')} combinações de Marca+Turma, cobrindo todas as marcas da base.\n\nDigite CONFIRMAR para prosseguir:`);
+  if (confirmText !== 'CONFIRMAR') { showToast('Operação cancelada', 'warn'); return; }
+  aplicarSeloGlobal(selo, colecao, pct, lista).catch(e => {
+    console.error(e);
+    esconderProgresso();
+    showToast('Erro ao aplicar: ' + e.message, 'danger');
+  });
+}
+async function aplicarSeloGlobal(selo, colecao, pct, lista) {
+  mostrarProgresso('Aplicando selo a todas as marcas e turmas');
+  const porMarca = {};
+  lista.forEach(c => { (porMarca[c.Marca] ||= []).push(c); });
+  const marcas = Object.keys(porMarca);
+  for (let i = 0; i < marcas.length; i++) {
+    const marca = marcas[i];
+    atualizarProgresso((i / marcas.length) * 90, `Aplicando em ${marca}...`);
+    const objs = porMarca[marca].map(c => ({ Marca: c.Marca, Turma: c.Turma, baseSelo: selo, selo2027: selo, colecao2027: colecao, pct2027: pct, autor: currentUser ? currentUser.email : '', quando: new Date().toISOString() }));
+    await db.collection('depara_edicoes').doc(marca).set({ ruleAdditions: firebase.firestore.FieldValue.arrayUnion(...objs) }, { merge: true });
+  }
+  atualizarProgresso(95, 'Registrando no histórico...');
+  await registrarHistorico('regra', `Selo aplicado globalmente: ${selo} / ${colecao} (${pctFmt(pct)}) em ${lista.length.toLocaleString('pt-BR')} combinações de Marca+Turma`);
+  atualizarProgresso(100, 'Concluído!');
+  showToast(`Selo aplicado a ${lista.length.toLocaleString('pt-BR')} combinações de Marca+Turma.`, 'ok');
+  setTimeout(esconderProgresso, 800);
 }
 function removeRuleAddition(index) {
   const obj = state.ruleAdditions[index];
