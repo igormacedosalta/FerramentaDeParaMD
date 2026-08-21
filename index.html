@@ -329,6 +329,25 @@
     <div id="progressoTexto" class="muted">Iniciando...</div>
   </div>
 </div>
+<div id="exceptionAddModal" class="modal-backdrop">
+  <div class="modal">
+    <h3>Adicionar coleção nova (exceção)</h3>
+    <p class="muted">Selecione a escola e o material novo para essa exceção específica.</p>
+    <div class="grid">
+      <div><label>Marca</label><select id="modalExcMarca" onchange="handleModalExcMarcaChange()"></select></div>
+      <div><label>Unidade</label><select id="modalExcUnidade" onchange="handleModalExcUnidadeChange()"></select></div>
+      <div><label>Turma</label><select id="modalExcTurma"></select></div>
+      <div><label>Turno</label><select id="modalExcTurno"></select></div>
+      <div><label>Selo</label><select id="modalExcSelo" onchange="handleModalExcSeloChange()"></select></div>
+      <div><label>Coleção</label><select id="modalExcColecao"></select></div>
+      <div><label>% utilização</label><input id="modalExcPct" type="number" min="0" max="100" step="1" value="100"></div>
+    </div>
+    <div class="row-actions">
+      <button class="secondary" onclick="closeExceptionAddModal()">Cancelar</button>
+      <button class="primary" onclick="saveExceptionAdditionFromModal()">Adicionar</button>
+    </div>
+  </div>
+</div>
 <div id="ruleAddModal" class="modal-backdrop">
   <div class="modal">
     <h3>Adicionar coleção nova nesta regra</h3>
@@ -1469,21 +1488,53 @@ function clearExceptionEdit(id) {
     .catch(e=>showToast('Erro ao reverter: '+e.message, 'danger'));
 }
 function addExceptionRow() {
-  const marca=byId('efMarca').value || prompt('Marca:');
-  if(!marca) return;
-  const unidade=byId('efUnidade').value || prompt('Unidade:');
-  if(!unidade) return;
-  const turma=byId('efTurma').value || prompt('Turma:');
-  if(!turma) return;
-  const baseSelo=byId('efSelo').value || '';
-  const turno=byId('efTurno').value || prompt('Informe o turno para esta exceção. Pode deixar vazio se não aplicável:', '');
-  const selo2027=prompt('Informe o selo do novo material:', baseSelo); if(!selo2027) return;
-  const colecao2027=prompt('Informe o nome da nova coleção/material:'); if(!colecao2027) return;
-  const pct2027=normalizePct(prompt('Informe o % de utilização entre 0 e 1:', '1'));
-  const obj={Marca:marca,Unidade:unidade,Turma:turma,Turno:turno,baseSelo,selo2027,colecao2027,pct2027,autor:currentUser?currentUser.email:'',quando:new Date().toISOString()};
+  byId('modalExcMarca').innerHTML = optList(allBrands, true, 'Selecione a marca...');
+  const marcaFiltro = byId('efMarca').value;
+  if (marcaFiltro && allBrands.includes(marcaFiltro)) byId('modalExcMarca').value = marcaFiltro;
+  handleModalExcMarcaChange();
+  byId('modalExcSelo').innerHTML = optList(allSelos, true, 'Selecione o selo...');
+  const seloFiltro = byId('efSelo').value;
+  if (seloFiltro && allSelos.includes(seloFiltro)) byId('modalExcSelo').value = seloFiltro;
+  handleModalExcSeloChange();
+  byId('modalExcPct').value = 100;
+  byId('exceptionAddModal').style.display = 'flex';
+}
+function handleModalExcMarcaChange() {
+  const marca = byId('modalExcMarca').value;
+  const unidades = uniq(baseData.filter(r=>r.Marca===marca).map(r=>r.Unidade));
+  byId('modalExcUnidade').innerHTML = optList(unidades, true, 'Selecione a unidade...');
+  const unidadeFiltro = byId('efUnidade').value;
+  if (unidadeFiltro && unidades.includes(unidadeFiltro)) byId('modalExcUnidade').value = unidadeFiltro;
+  handleModalExcUnidadeChange();
+}
+function handleModalExcUnidadeChange() {
+  const marca = byId('modalExcMarca').value, unidade = byId('modalExcUnidade').value;
+  const rows = baseData.filter(r=>r.Marca===marca && r.Unidade===unidade);
+  const turmas = sortTurmas(uniq(rows.map(r=>r.Turma)));
+  byId('modalExcTurma').innerHTML = optList(turmas, true, 'Selecione a turma...');
+  const turmaFiltro = byId('efTurma').value;
+  if (turmaFiltro && turmas.includes(turmaFiltro)) byId('modalExcTurma').value = turmaFiltro;
+  const turnos = uniq(rows.map(r=>r.Turno));
+  byId('modalExcTurno').innerHTML = optList(turnos, true, 'Selecione o turno...');
+  const turnoFiltro = byId('efTurno').value;
+  if (turnoFiltro && turnos.includes(turnoFiltro)) byId('modalExcTurno').value = turnoFiltro;
+}
+function handleModalExcSeloChange() { setCollectionOptions('modalExcColecao', byId('modalExcSelo').value, 'Não utiliza'); }
+function closeExceptionAddModal() { byId('exceptionAddModal').style.display = 'none'; }
+function saveExceptionAdditionFromModal() {
+  const marca = byId('modalExcMarca').value;
+  const unidade = byId('modalExcUnidade').value;
+  const turma = byId('modalExcTurma').value;
+  const turno = byId('modalExcTurno').value;
+  const selo2027 = byId('modalExcSelo').value;
+  const colecao2027 = byId('modalExcColecao').value;
+  const pct2027 = normalizePct(byId('modalExcPct').value);
+  if (!marca || !unidade || !turma || !selo2027 || !colecao2027) { alert('Preencha Marca, Unidade, Turma, Selo e Coleção.'); return; }
+  const obj={Marca:marca,Unidade:unidade,Turma:turma,Turno:turno,baseSelo:selo2027,selo2027,colecao2027,pct2027,autor:currentUser?currentUser.email:'',quando:new Date().toISOString()};
   db.collection('depara_edicoes').doc(marca).set({ exceptionAdditions: firebase.firestore.FieldValue.arrayUnion(obj) }, {merge:true})
     .then(()=>{ showToast('Exceção adicionada'+(currentUser?(' · '+currentUser.email):''), 'ok'); registrarHistorico('excecao', `Exceção nova adicionada: ${marca} / ${unidade} / ${turma} / ${turno||''} → ${selo2027} / ${colecao2027} (${pctFmt(pct2027)})`); })
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
+  closeExceptionAddModal();
 }
 function removeExceptionAddition(index) {
   const obj = state.exceptionAdditions[index];
