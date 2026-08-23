@@ -258,13 +258,15 @@
 
     <div class="card">
       <h3 style="margin-top:0;">Aplicar selo novo a todas as marcas e turmas</h3>
-      <div class="help">Depois de cadastrar um selo novo (acima), use isso para adicioná-lo de uma vez em <strong>todas as combinações de Marca+Turma</strong> da base — sem precisar repetir "Adicionar coleção nova" marca por marca em "1. Regras". Isso cria uma adição de regra em cada Marca+Turma existente.</div>
+      <div class="help">Depois de cadastrar um selo novo (acima), use isso para adicioná-lo de uma vez em <strong>todas as combinações de Marca+Turma</strong> da base — sem precisar repetir "Adicionar coleção nova" marca por marca em "1. Regras". Isso cria uma adição de regra em cada Marca+Turma existente. Duplicatas são evitadas e removidas automaticamente, sem precisar de ação manual.</div>
       <div class="grid">
         <div><label>Selo</label><select id="globalSeloSelo"></select></div>
         <div class="wide"><label>Coleção</label><input id="globalSeloColecao" list="colecoesList" placeholder="Digite ou selecione uma coleção"></div>
         <div><label>% utilização</label><input id="globalSeloPct" type="number" min="0" max="100" step="1" value="100"></div>
       </div>
-      <div class="row-actions" style="margin-top:14px;"><button class="danger" onclick="confirmarAplicarSeloGlobal()">Aplicar a todas as marcas e turmas</button></div>
+      <div class="row-actions" style="margin-top:14px;">
+        <button class="danger" onclick="confirmarAplicarSeloGlobal()">Aplicar a todas as marcas e turmas</button>
+      </div>
     </div>
 
     <div class="card">
@@ -566,6 +568,7 @@ async function mostrarApp() {
   if (isAdmin) { renderAdminUsuarios(); renderBaseAtualInfo(); renderHistoricoCiclos(); renderMarcasTable(); renderCatalogosInfo(); renderReferenciaInfo(); renderSelosPTCheckboxes(); renderHistoricoAlteracoes(); byId("globalSeloSelo").innerHTML = optList(allSelos, true, "Selecione o selo..."); }
   ligarListenersEdicoes();
   ligarListenerProprioTerceiro();
+  setTimeout(limparDuplicatasSilenciosamente, 2500);
 }
 
 function aplicarRestricaoMarcas(marcas) {
@@ -1409,7 +1412,7 @@ function getRegrasEfetivas() {
       Pct: edit ? edit.pct2027 : g.PctOriginal,
     };
   });
-  state.ruleAdditions.filter(a => !restrictMarcas || restrictMarcas.includes(a.Marca)).forEach(a => {
+  dedupAdditions(state.ruleAdditions, ['Marca','Turma','selo2027','colecao2027']).filter(a => !restrictMarcas || restrictMarcas.includes(a.Marca)).forEach(a => {
     regras.push({
       key: null, Marca: a.Marca, Turma: a.Turma, isAddition: true, additionRef: a,
       Selo: a.selo2027, Colecao: a.colecao2027, Pct: a.pct2027,
@@ -1482,16 +1485,31 @@ function renderExceptions() {
   const visiveis = rows.slice(0,500);
   let html='<thead><tr><th>Marca</th><th>Unidade</th><th>Turma</th><th>Turno</th><th>Selo</th><th>Material atual</th><th>% atual</th><th>Selo novo</th><th>Material novo</th><th>% novo</th><th>Ação</th></tr></thead><tbody>';
   visiveis.forEach(r=>{ html += `<tr><td>${escapeHtml(r.Marca)}</td><td>${escapeHtml(r.Unidade)}</td><td>${escapeHtml(r.Turma)}</td><td>${escapeHtml(r.Turno)}</td><td>${escapeHtml(r.SeloEfetivo)}</td><td>${escapeHtml(r.ColecaoEfetiva)}</td><td>${pctFmt(r.PctEfetivo)}</td><td><select id="eselo_${r.id}" onchange="handleExceptionSeloChange('${r.id}')">${optList(allSelos)}</select></td><td><select id="ecol_${r.id}"></select></td><td><input id="epct_${r.id}" type="number" step="1" min="0" max="100" value="${escapeAttr(pctInput(r.PctEfetivo))}"></td><td class="row-actions"><button class="secondary" onclick="saveExceptionEdit('${r.id}', false)">Salvar</button><button class="danger" onclick="saveExceptionEdit('${r.id}', true)">Excluir</button><button class="secondary" onclick="clearExceptionEdit('${r.id}')">Reverter</button></td></tr>`; });
-  aplicarFiltrosExcecoes(state.exceptionAdditions.map(a=>({Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:a.baseSelo, SeloEfetivo:a.baseSelo, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.exceptionAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Unidade)}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.Turno||'')}</td><td>${escapeHtml(a.baseSelo)}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeExceptionAddition(${i})">Remover</button></td></tr>`; });
+  aplicarFiltrosExcecoes(dedupAdditions(state.exceptionAdditions, ['Marca','Unidade','Turma','Turno','selo2027','colecao2027']).map(a=>({Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:a.baseSelo, SeloEfetivo:a.baseSelo, _orig:a}))).forEach(item=>{ const a=item._orig; const i=state.exceptionAdditions.indexOf(a); html += `<tr><td>${escapeHtml(a.Marca)}</td><td>${escapeHtml(a.Unidade)}</td><td>${escapeHtml(a.Turma)}</td><td>${escapeHtml(a.Turno||'')}</td><td>${escapeHtml(a.baseSelo)}</td><td>—</td><td>—</td><td>${escapeHtml(a.selo2027)}</td><td>${escapeHtml(a.colecao2027)}</td><td>${pctFmt(a.pct2027)}</td><td><button class="danger" onclick="removeExceptionAddition(${i})">Remover</button></td></tr>`; });
   html+='</tbody>'; byId('exceptionsTable').innerHTML=html;
   visiveis.forEach(r=>{ const el=byId('eselo_'+r.id); if(el) { el.value=r.SeloEfetivo; setCollectionOptions('ecol_'+r.id, r.SeloEfetivo, r.ColecaoEfetiva); } });
 }
 function handleExceptionSeloChange(id) { const selo=byId('eselo_'+id).value; setCollectionOptions('ecol_'+id, selo, 'Não utiliza'); }
 function saveExceptionEdit(id, deleted) {
   const r=baseData.find(x=>x.id===id); const marca=r.Marca;
+  const seloEscolhido = byId('eselo_'+id).value;
+  if (!deleted && seloEscolhido !== r.Selo) {
+    // trocou de selo: o selo antigo passa a "não utiliza", e o selo novo entra como uma adição separada só para esta escola
+    const colecaoNova = byId('ecol_'+id).value.trim();
+    const pctNovo = normalizePct(byId('epct_'+id).value);
+    const valorAntigo = { deleted:false, selo2027:r.Selo, colecao2027:'Não utiliza', pct2027:0, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
+    const novaAdicao = { Marca:marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno, baseSelo:r.Selo, selo2027:seloEscolhido, colecao2027:colecaoNova, pct2027:pctNovo, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
+    db.collection('depara_edicoes').doc(marca).set({
+      exceptionEdits: { [id]: valorAntigo },
+      exceptionAdditions: firebase.firestore.FieldValue.arrayUnion(novaAdicao),
+    }, {merge:true})
+      .then(()=>{ showToast('Selo trocado'+(currentUser?(' · '+currentUser.email):''), 'ok'); registrarHistorico('excecao', `Selo trocado: ${marca} / ${r.Unidade} / ${r.Turma} / ${r.Turno} — ${r.Selo} passou a "Não utiliza"; ${seloEscolhido} / ${colecaoNova} (${pctFmt(pctNovo)}) adicionado`); })
+      .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
+    return;
+  }
   const valor = deleted
-    ? { deleted:false, selo2027:byId('eselo_'+id).value, colecao2027:'Não utiliza', pct2027:0, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() }
-    : { deleted:false, selo2027:byId('eselo_'+id).value, colecao2027:byId('ecol_'+id).value.trim() || r['Coleção'], pct2027:normalizePct(byId('epct_'+id).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
+    ? { deleted:false, selo2027:r.Selo, colecao2027:'Não utiliza', pct2027:0, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() }
+    : { deleted:false, selo2027:seloEscolhido, colecao2027:byId('ecol_'+id).value.trim() || r['Coleção'], pct2027:normalizePct(byId('epct_'+id).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
   db.collection('depara_edicoes').doc(marca).set({ exceptionEdits: { [id]: valor } }, {merge:true})
     .then(()=>{ showToast((deleted?'Marcado como não utiliza':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'warn':'ok'); registrarHistorico('excecao', deleted ? `Exceção marcada como não utiliza: ${marca} / ${r.Unidade} / ${r.Turma} / ${r.Turno} (${r['Coleção']})` : `Exceção alterada: ${marca} / ${r.Unidade} / ${r.Turma} / ${r.Turno} → ${valor.selo2027} / ${valor.colecao2027} / ${pctFmt(valor.pct2027)}`); })
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
@@ -1579,12 +1597,27 @@ function renderRules() {
   visiveis.filter(g=>!g.isAddition).forEach(g=>{ const enc=safeEnc(g.key); const seloEl=byId('rselo_'+enc); if(seloEl) { seloEl.value=g.Selo; setCollectionOptions('rcol_'+enc, g.Selo, g.Colecao); } });
 }
 function saveRuleEdit(kEnc, deleted) {
-  const k=decodeURIComponent(kEnc); const enc=safeEnc(k); const parts=k.split('|||'); const marca=parts[0]; const colecao=parts[3];
+  const k=decodeURIComponent(kEnc); const enc=safeEnc(k); const parts=k.split('|||'); const marca=parts[0]; const turma=parts[1]; const seloOriginal=parts[2]; const colecao=parts[3];
+  const seloEscolhido = byId('rselo_'+enc).value;
+  if (!deleted && seloEscolhido !== seloOriginal) {
+    // trocou de selo: o selo antigo passa a "não utiliza", e o selo novo entra como uma adição separada
+    const colecaoNova = byId('rcol_'+enc).value.trim();
+    const pctNovo = normalizePct(byId('rpct_'+enc).value);
+    const valorAntigo = { deleted:false, selo2027:seloOriginal, colecao2027:'Não utiliza', pct2027:0, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
+    const novaAdicao = { Marca:marca, Turma:turma, baseSelo:seloOriginal, selo2027:seloEscolhido, colecao2027:colecaoNova, pct2027:pctNovo, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
+    db.collection('depara_edicoes').doc(marca).set({
+      ruleEdits: { [k]: valorAntigo },
+      ruleAdditions: firebase.firestore.FieldValue.arrayUnion(novaAdicao),
+    }, {merge:true})
+      .then(()=>{ showToast('Selo trocado'+(currentUser?(' · '+currentUser.email):''), 'ok'); registrarHistorico('regra', `Selo trocado: ${marca} / ${turma} — ${seloOriginal} passou a "Não utiliza"; ${seloEscolhido} / ${colecaoNova} (${pctFmt(pctNovo)}) adicionado`); })
+      .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
+    return;
+  }
   const valor = deleted
-    ? { deleted:false, selo2027:byId('rselo_'+enc).value, colecao2027:'Não utiliza', pct2027:0, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() }
-    : { deleted:false, selo2027:byId('rselo_'+enc).value, colecao2027:byId('rcol_'+enc).value.trim() || colecao, pct2027:normalizePct(byId('rpct_'+enc).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
+    ? { deleted:false, selo2027:seloOriginal, colecao2027:'Não utiliza', pct2027:0, autor:currentUser?currentUser.email:'', quando:new Date().toISOString() }
+    : { deleted:false, selo2027:seloEscolhido, colecao2027:byId('rcol_'+enc).value.trim() || colecao, pct2027:normalizePct(byId('rpct_'+enc).value), autor:currentUser?currentUser.email:'', quando:new Date().toISOString() };
   db.collection('depara_edicoes').doc(marca).set({ ruleEdits: { [k]: valor } }, {merge:true})
-    .then(()=>{ showToast((deleted?'Marcado como não utiliza':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'warn':'ok'); registrarHistorico('regra', deleted ? `Regra marcada como não utiliza: ${marca} / ${parts[1]} / ${colecao} (${parts[2]})` : `Regra alterada: ${marca} / ${parts[1]} / ${colecao} (${parts[2]}) → ${valor.selo2027} / ${valor.colecao2027} / ${pctFmt(valor.pct2027)}`); })
+    .then(()=>{ showToast((deleted?'Marcado como não utiliza':'Alteração salva')+(currentUser?(' · '+currentUser.email):''), deleted?'warn':'ok'); registrarHistorico('regra', deleted ? `Regra marcada como não utiliza: ${marca} / ${turma} / ${colecao} (${seloOriginal})` : `Regra alterada: ${marca} / ${turma} / ${colecao} (${seloOriginal}) → ${valor.selo2027} / ${valor.colecao2027} / ${pctFmt(valor.pct2027)}`); })
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
 }
 function clearRuleEdit(kEnc) {
@@ -1623,6 +1656,28 @@ function saveRuleAdditionFromModal() {
     .catch(e=>showToast('Erro ao salvar: '+e.message, 'danger'));
   closeRuleAddModal();
 }
+let dedupJaExecutado = false;
+async function limparDuplicatasSilenciosamente() {
+  if (dedupJaExecutado) return;
+  dedupJaExecutado = true;
+  try {
+    const marcasEditaveis = currentUser.papel === 'admin' ? allBrands : currentUser.marcas;
+    for (const marca of marcasEditaveis) {
+      const doc = await db.collection('depara_edicoes').doc(marca).get();
+      if (!doc.exists) continue;
+      const d = doc.data();
+      const ra = d.ruleAdditions || [];
+      const ea = d.exceptionAdditions || [];
+      const raUnicas = dedupAdditions(ra, ['Marca','Turma','selo2027','colecao2027']);
+      const eaUnicas = dedupAdditions(ea, ['Marca','Unidade','Turma','Turno','selo2027','colecao2027']);
+      if (raUnicas.length !== ra.length || eaUnicas.length !== ea.length) {
+        await db.collection('depara_edicoes').doc(marca).set({ ruleAdditions: raUnicas, exceptionAdditions: eaUnicas }, { merge: true });
+      }
+    }
+  } catch (e) {
+    console.error('Erro na limpeza automática de duplicatas', e);
+  }
+}
 function confirmarAplicarSeloGlobal() {
   const selo = byId('globalSeloSelo').value;
   const colecao = byId('globalSeloColecao').value.trim();
@@ -1645,16 +1700,25 @@ async function aplicarSeloGlobal(selo, colecao, pct, lista) {
   const porMarca = {};
   lista.forEach(c => { (porMarca[c.Marca] ||= []).push(c); });
   const marcas = Object.keys(porMarca);
+  let totalNovas = 0, totalJaExistentes = 0;
   for (let i = 0; i < marcas.length; i++) {
     const marca = marcas[i];
     atualizarProgresso((i / marcas.length) * 90, `Aplicando em ${marca}...`);
-    const objs = porMarca[marca].map(c => ({ Marca: c.Marca, Turma: c.Turma, baseSelo: selo, selo2027: selo, colecao2027: colecao, pct2027: pct, autor: currentUser ? currentUser.email : '', quando: new Date().toISOString() }));
-    await db.collection('depara_edicoes').doc(marca).set({ ruleAdditions: firebase.firestore.FieldValue.arrayUnion(...objs) }, { merge: true });
+    const existentes = new Set(state.ruleAdditions.filter(a=>a.Marca===marca).map(a => [a.Turma, a.selo2027, a.colecao2027].join('|||')));
+    const objs = porMarca[marca]
+      .filter(c => {
+        const chave = [c.Turma, selo, colecao].join('|||');
+        if (existentes.has(chave)) { totalJaExistentes++; return false; }
+        return true;
+      })
+      .map(c => ({ Marca: c.Marca, Turma: c.Turma, baseSelo: selo, selo2027: selo, colecao2027: colecao, pct2027: pct, autor: currentUser ? currentUser.email : '', quando: new Date().toISOString() }));
+    totalNovas += objs.length;
+    if (objs.length) await db.collection('depara_edicoes').doc(marca).set({ ruleAdditions: firebase.firestore.FieldValue.arrayUnion(...objs) }, { merge: true });
   }
   atualizarProgresso(95, 'Registrando no histórico...');
-  await registrarHistorico('regra', `Selo aplicado globalmente: ${selo} / ${colecao} (${pctFmt(pct)}) em ${lista.length.toLocaleString('pt-BR')} combinações de Marca+Turma`);
+  await registrarHistorico('regra', `Selo aplicado globalmente: ${selo} / ${colecao} (${pctFmt(pct)}) — ${totalNovas} nova(s), ${totalJaExistentes} já existente(s) ignorada(s)`);
   atualizarProgresso(100, 'Concluído!');
-  showToast(`Selo aplicado a ${lista.length.toLocaleString('pt-BR')} combinações de Marca+Turma.`, 'ok');
+  showToast(`${totalNovas.toLocaleString('pt-BR')} combinação(ões) nova(s) aplicada(s)${totalJaExistentes ? `, ${totalJaExistentes.toLocaleString('pt-BR')} já existiam e não foram duplicadas` : ''}.`, 'ok');
   setTimeout(esconderProgresso, 800);
 }
 function removeRuleAddition(index) {
@@ -1715,13 +1779,27 @@ function clearNewClasses() {
   Promise.all(marcas.map(m => db.collection('depara_edicoes').doc(m).update({ newClasses: [] }).catch(() => null)))
     .then(() => showToast('Novas turmas removidas', 'warn'));
 }
+function dedupAdditions(lista, camposChave) {
+  const vistos = new Set();
+  return lista.filter(a => {
+    const chave = camposChave.map(c => a[c]).join('|||');
+    if (vistos.has(chave)) return false;
+    vistos.add(chave);
+    return true;
+  });
+}
 function getFinalRows() {
+  const ruleAdditionsUnicas = dedupAdditions(state.ruleAdditions, ['Marca','Turma','selo2027','colecao2027']);
+  const exceptionAdditionsUnicas = dedupAdditions(state.exceptionAdditions, ['Marca','Unidade','Turma','Turno','selo2027','colecao2027']);
   const final=[];
   baseData.forEach(r=>{ let out={...r, Selo2027:r.Selo, Colecao2027:r['Coleção'], Pct2027:r.Pct, Origem:'Base 2026'}; const re=state.ruleEdits[currentRuleKey(r)]; if(re) { if(re.deleted) return; out.Selo2027=re.selo2027; out.Colecao2027=re.colecao2027; out.Pct2027=re.pct2027; out.Origem='Regra'; } const ee=state.exceptionEdits[r.id]; if(ee) { if(ee.deleted) return; out.Selo2027=ee.selo2027; out.Colecao2027=ee.colecao2027; out.Pct2027=ee.pct2027; out.Origem='Exceção'; } final.push(out); });
   const comboMap={}; baseData.forEach(r=>{ const k=[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||'); if(!comboMap[k]) comboMap[k]={Marca:r.Marca,Unidade:r.Unidade,Turma:r.Turma,Turno:r.Turno, selos:new Set()}; comboMap[k].selos.add(r.Selo); });
+  // selos cobertos por uma adição (Regra ou Exceção) não devem gerar a linha sintética "Não utiliza"
+  ruleAdditionsUnicas.forEach(a=>{ Object.values(comboMap).forEach(c=>{ if(c.Marca===a.Marca && c.Turma===a.Turma) c.selos.add(a.selo2027); }); });
+  exceptionAdditionsUnicas.forEach(a=>{ Object.values(comboMap).forEach(c=>{ if(c.Marca===a.Marca && c.Unidade===a.Unidade && c.Turma===a.Turma && (!a.Turno || c.Turno===a.Turno)) c.selos.add(a.selo2027); }); });
   Object.values(comboMap).forEach(c=>{ allSelos.forEach(selo=>{ if(c.selos.has(selo)) return; const k=ruleKey(c.Marca,c.Turma,selo,'Não utiliza'); const re=state.ruleEdits[k]; if(re && re.deleted) return; final.push({id:'NAO_UTILIZA', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:selo, 'Coleção':'Não utiliza', Pct:0, Selo2027:re ? re.selo2027 : selo, Colecao2027:re ? re.colecao2027 : 'Não utiliza', Pct2027:re ? re.pct2027 : 0, Origem:re ? 'Regra' : 'Não utiliza'}); }); });
-  state.ruleAdditions.forEach(a=>{ const combos={}; baseData.filter(r=>r.Marca===a.Marca && r.Turma===a.Turma).forEach(r=>{ combos[[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||')]={Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno}; }); Object.values(combos).forEach(c=>final.push({id:'ADD_RULE', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - regra'})); });
-  state.exceptionAdditions.forEach(a=>{
+  ruleAdditionsUnicas.forEach(a=>{ const combos={}; baseData.filter(r=>r.Marca===a.Marca && r.Turma===a.Turma).forEach(r=>{ combos[[r.Marca,r.Unidade,r.Turma,r.Turno].join('|||')]={Marca:r.Marca, Unidade:r.Unidade, Turma:r.Turma, Turno:r.Turno}; }); Object.values(combos).forEach(c=>final.push({id:'ADD_RULE', Marca:c.Marca, Unidade:c.Unidade, Turma:c.Turma, Turno:c.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - regra'})); });
+  exceptionAdditionsUnicas.forEach(a=>{
     if (a.Turno) {
       final.push({id:'ADD_EXC', Marca:a.Marca, Unidade:a.Unidade, Turma:a.Turma, Turno:a.Turno, Selo:'', 'Coleção':'', Pct:'', Selo2027:a.selo2027, Colecao2027:a.colecao2027, Pct2027:a.pct2027, Origem:'Nova coleção - exceção'});
     } else {
